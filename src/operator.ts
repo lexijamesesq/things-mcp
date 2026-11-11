@@ -1,7 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { chmodSync, existsSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
-import { isAbsolute, join } from "node:path";
+import { dirname, isAbsolute, join } from "node:path";
 import Database from "better-sqlite3";
 import { Journal } from "./journal.ts";
 import { verifyLock } from "./lock.ts";
@@ -12,9 +12,12 @@ import { mergeBackup } from "./restore.ts";
 process.umask(0o077);
 const base = join(homedir(), "Library/Application Support/ThingsMCP");
 const configPath = join(base, "config.json");
-const plist = join(homedir(), "Library/LaunchAgents/esq.lexi.things-mcp.plist");
+const serviceLabel = process.env.THINGS_SERVICE_LABEL ?? "org.things-mcp.service";
+if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$/.test(serviceLabel))
+  throw new Error("invalid_service_label");
+const plist = join(homedir(), "Library/LaunchAgents", `${serviceLabel}.plist`);
 const domain = `gui/${process.getuid?.()}`;
-const label = `${domain}/esq.lexi.things-mcp`;
+const label = `${domain}/${serviceLabel}`;
 const [command, argument] = process.argv.slice(2);
 function run(executable: string, args: string[]) {
   const result = spawnSync(executable, args, { stdio: "inherit" });
@@ -54,15 +57,18 @@ if (command === "doctor") {
 } else if (["retention", "backup", "reconcile", "restore", "activate"].includes(command)) {
   // Maintenance is exclusive with the service and surviving native helpers.
   if (!process.env.THINGS_EXECUTOR_LOCK_FD) {
-    run(join(base, "releases/0.1.0/build/Things MCP"), [
-      join(base, "state/executor.lock"),
+    run(join(dirname(config.nativePath), "Things MCP"), [
+      join(dirname(config.journal), "executor.lock"),
       process.execPath,
       process.argv[1],
       command,
       ...(argument ? [argument] : []),
     ]);
   }
-  verifyLock(join(base, "releases/0.1.0/build/Things MCP"), join(base, "state/executor.lock"));
+  verifyLock(
+    join(dirname(config.nativePath), "Things MCP"),
+    join(dirname(config.journal), "executor.lock"),
+  );
   const journal = new Journal(config.journal, true);
   try {
     if (command === "activate") {

@@ -1,4 +1,8 @@
 import { bindings, defineConfig, triggers } from "cf/config";
+
+const signingKid = process.env.THINGS_SIGNING_KID;
+if (!signingKid) throw new Error("THINGS_SIGNING_KID is required; preserve the installed key ID");
+
 export default defineConfig({
   accountId: process.env.THINGS_CF_ACCOUNT_ID,
   worker: {
@@ -30,7 +34,7 @@ export default defineConfig({
       ACCESS_AUD: bindings.secret(),
       OWNER_SUBJECT: bindings.secret(),
       SIGNING_JWK: bindings.secret(),
-      SIGNING_KID: bindings.json("2026-11-10-a"),
+      SIGNING_KID: bindings.json(signingKid),
       STUDIO_AUDIENCE: bindings.json("things-mcp-studio"),
       CF_ACCESS_CLIENT_ID: bindings.secret(),
       CF_ACCESS_CLIENT_SECRET: bindings.secret(),
