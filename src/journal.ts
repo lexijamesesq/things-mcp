@@ -25,14 +25,26 @@ type Row = {
 };
 export class Journal {
   db: Database.Database;
-  constructor(path: string) {
-    this.db = new Database(path);
+  constructor(path: string, mustExist = false) {
+    this.db = new Database(path, { fileMustExist: mustExist });
     chmodSync(path, 0o600);
     this.db.pragma("journal_mode = WAL");
     this.db.pragma("synchronous = FULL");
     this.db.pragma("busy_timeout = 5000");
     const version = this.db.pragma("user_version", { simple: true });
     if (version !== 0 && version !== 1) throw new Fault("journal_schema_unsupported");
+    if (mustExist) {
+      if (version !== 1) throw new Fault("journal_schema_missing");
+      this.db
+        .prepare(
+          "SELECT owner,operation_id,client,grant_id,scopes,request_hash,state,created,updated,result,expired FROM operations LIMIT 0",
+        )
+        .all();
+      this.db.prepare("SELECT owner,operation_id,number,state,result FROM stages LIMIT 0").all();
+      if (this.db.pragma("quick_check", { simple: true }) !== "ok")
+        throw new Fault("journal_corrupt");
+      return;
+    }
     this.db.exec(`CREATE TABLE IF NOT EXISTS operations(owner TEXT NOT NULL,operation_id TEXT NOT NULL,client TEXT NOT NULL,grant_id TEXT NOT NULL,scopes TEXT NOT NULL,request_hash TEXT NOT NULL,state TEXT NOT NULL,created INTEGER NOT NULL,updated INTEGER NOT NULL,result TEXT,expired INTEGER NOT NULL DEFAULT 0,PRIMARY KEY(owner,operation_id));
   CREATE TABLE IF NOT EXISTS stages(owner TEXT NOT NULL,operation_id TEXT NOT NULL,number INTEGER NOT NULL,state TEXT NOT NULL,result TEXT,PRIMARY KEY(owner,operation_id,number)); PRAGMA user_version=1;`);
   }
@@ -184,6 +196,9 @@ export class SerialQueue {
         this.count--;
       });
     return next;
+  }
+  async drain() {
+    await this.tail;
   }
   get size() {
     return this.count;

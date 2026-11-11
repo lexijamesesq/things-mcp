@@ -42,17 +42,27 @@ The Things MCP launcher holds a kernel lock inherited by every native helper.
 - `doctor` checks configuration permissions, SQLite integrity and installation.
 - `retention` removes expired results while preserving operation tombstones.
 - `backup /absolute/new/path.sqlite` uses SQLite's consistent backup API.
+- `restore /absolute/backup.sqlite` merges identities and stage evidence into the
+  existing journal, preserves expiry, rejects collisions, and guards retries.
 - `reconcile OPERATION_ID` reads only an already-recorded native ID. It reports
   current state without attributing changes or authorizing replay.
 
-Stop the service before retention, backup, or reconciliation. These commands acquire
+Stop the service before retention, backup, restore, or reconciliation. These commands acquire
 the same executor lock, so they also refuse access while a surviving helper holds
 it. Reconciliation runs under the operator's Automation identity and never prompts
 or launches Things. Authenticated `things_status` checks the installed service's
 identity and never launches Things.
 
-Restore and rollback procedures are still release gates. Do not replace the live
-journal with an older backup: doing so could discard newer replay tombstones.
+Restore refuses a missing, truncated, or incomplete live journal. A backup cannot
+prove that newer operation identities were not lost. Never replace the live journal
+with an older backup. If current tombstones are unrecoverable, keep writes disabled
+and investigate rather than manufacturing empty deduplication state.
+
+Rollback must preserve the current journal and trust configuration. Stop both
+LaunchAgents, retain the current release, point the service job to a previously
+verified compatible release, and restart. Do not downgrade the journal schema or
+remove a signing key still needed by in-flight requests. The first release has no
+previous verified rollback target; that installed rollback exercise remains open.
 
 ## Independent validation
 

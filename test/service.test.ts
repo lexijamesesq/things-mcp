@@ -156,3 +156,20 @@ test("readiness observes unavailable native access without starting Things", asy
   assert.equal(result.native.permission, "required");
   assert.equal(result.journal, "accessible");
 });
+
+test("degraded service preserves diagnostics while rejecting task admission", async (t) => {
+  const { service, native } = fixture(t);
+  service.accepting = false;
+  const status = (await service.call("things_status", {}, owner)) as {
+    service: string;
+    writes: { ready: boolean };
+  };
+  assert.equal(status.service, "degraded");
+  assert.equal(status.writes.ready, false);
+  await service.call("things_capabilities", {}, owner);
+  await assert.rejects(
+    service.call("things_create", { operationId: randomUUID(), title: "blocked" }, owner),
+    /service_unavailable/,
+  );
+  assert.equal(native.writes, 0);
+});

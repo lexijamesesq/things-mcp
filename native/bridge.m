@@ -12,6 +12,10 @@ static OSStatus nativeError=0;
 static BOOL dispatched=NO;
 static BOOL launchAttempted=NO;
 static void fail(NSString *code) { @throw [NSException exceptionWithName:code reason:code userInfo:nil]; }
+static void requireOwnerSession(void) {
+ NSDictionary *session=CFBridgingRelease(CGSessionCopyCurrentDictionary());
+ if(![session[(NSString *)kCGSessionOnConsoleKey] boolValue]||[session[(NSString *)kCGSessionUserIDKey] unsignedIntValue]!=getuid()||[session[@"CGSSessionScreenIsLocked"] boolValue])fail(@"owner_session_unavailable");
+}
 static NSAppleEventDescriptor *spec(DescType cls, DescType form, NSAppleEventDescriptor *key, NSAppleEventDescriptor *container) {
  NSAppleEventDescriptor *record=[NSAppleEventDescriptor recordDescriptor];
  [record setDescriptor:[NSAppleEventDescriptor descriptorWithTypeCode:cls] forKeyword:keyAEDesiredClass];
@@ -23,6 +27,7 @@ static NSAppleEventDescriptor *spec(DescType cls, DescType form, NSAppleEventDes
 static NSAppleEventDescriptor *all(void) {DescType code=kAEAll;return [NSAppleEventDescriptor descriptorWithDescriptorType:typeAbsoluteOrdinal bytes:&code length:sizeof(code)];}
 static NSAppleEventDescriptor *property(DescType code, NSAppleEventDescriptor *container) { return spec(typeProperty,formPropertyID,[NSAppleEventDescriptor descriptorWithTypeCode:code],container); }
 static NSAppleEventDescriptor *sendEvent(AEEventID eid, NSDictionary<NSNumber *,NSAppleEventDescriptor *> *parameters) {
+ requireOwnerSession();
  struct proc_bsdinfo now={0}; pid_t pid=application.processIdentifier;
  if(application.terminated||proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&now,sizeof(now))!=sizeof(now)||identity.pbi_start_tvsec!=now.pbi_start_tvsec||identity.pbi_start_tvusec!=now.pbi_start_tvusec) fail(@"unavailable");
  NSAppleEventDescriptor *event=[NSAppleEventDescriptor appleEventWithEventClass:kAECoreSuite eventID:eid targetDescriptor:target returnID:kAutoGenerateReturnID transactionID:kAnyTransactionID];
@@ -55,8 +60,7 @@ int main(int argc, const char **argv) { @autoreleasepool { @try {
  else if([op isEqual:@"get"]){exact(r,@[@"operation",@"id"]);str(r,@"id",256);}
  else if([op hasPrefix:@"set_"]){exact(r,@[@"operation",@"id",@"value"]);str(r,@"id",256);if([op isEqual:@"set_notes"]){if(![r[@"value"] isKindOfClass:NSString.class]||[r[@"value"] length]>100000)fail(@"invalid_argument");}else str(r,@"value",1000);if([op isEqual:@"set_status"]&&![@[@"open",@"completed"] containsObject:r[@"value"]])fail(@"invalid_argument");}
  else exact(r,@[@"operation"]);
- NSDictionary *session=CFBridgingRelease(CGSessionCopyCurrentDictionary());
- if(![session[(NSString *)kCGSessionOnConsoleKey] boolValue]||[session[(NSString *)kCGSessionUserIDKey] unsignedIntValue]!=getuid()||[session[@"CGSSessionScreenIsLocked"] boolValue])fail(@"owner_session_unavailable");
+ requireOwnerSession();
  NSArray *apps=[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.culturedcode.ThingsMac"];
  if(apps.count==0 && [op isEqual:@"ensure_running"]) {
   NSURL *url=[NSURL fileURLWithPath:@"/Applications/Things3.app" isDirectory:YES];

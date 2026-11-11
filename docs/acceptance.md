@@ -40,8 +40,7 @@ by this adapter, so this does not establish that those remained unchanged.
 Locked and logged-out sessions;
 exit during native dispatch; recurrence schedule/occurrence inventory; native list scopes,
 pagination and dates; remaining multistage crash/disconnect boundaries; live
-Access/Tunnel authenticated denial matrix; independent client grants, refresh and
-revocation; installed operator commands, backup, restore and rollback; estate
+Access/Tunnel authenticated denial matrix; server refresh and revocation; installed operator commands, backup, restore and rollback; estate
 repository enrollment and protections. Production writes remain disabled.
 
 ## Architecture clarification
@@ -52,7 +51,7 @@ Worker route exclusion preserve public Access evaluation on origin subrequests.
 Require origin-AUD Access JWT validation at cloudflared as well as the local
 request-bound signed grant. The topology is deployed as a read-only acceptance candidate. Public discovery,
 MCP challenges, direct-origin denial, and unmatched-path denial passed. Authenticated
-end-to-end acceptance remains open. See [deployment record](deployment.md).
+Codex development reads passed before and after a service restart. See [deployment record](deployment.md).
 
 ## Baseline source
 
@@ -73,6 +72,32 @@ and reproduced a Chrome CSP callback failure. After the fix, actual generated
 approval and denial pages reached the callback; adversarial client markup remained
 inert, with no referrer leakage or CSP violations.
 
-The current complete suite passes 21 tests. TypeScript checks and the native build
+The current complete suite passes 29 tests. TypeScript checks and the native build
 pass. Browser reproductions live under `test/manual/`. These results do not replace
 live identity, origin-denial, real-client, or installed mutation acceptance.
+
+## Installed native MCP writes
+
+A one-shot LaunchAgent used the installed launcher, pinned Node, real native helper,
+and production executor lock while the normal service was stopped. An isolated
+loopback MCP server used an ephemeral signing key and separate journal. Its adapter
+allowed one create attempt and restricted all subsequent task access to that ID.
+
+Nineteen MCP calls passed: five concurrent creates produced one task, replay did
+not repeat the title edit, mismatched operation payloads and insufficient scopes
+were rejected, stale revision conflicted, notes cleared, and complete/reopen/final
+completion succeeded. The fixture was left completed. The one-shot job was removed
+and the normal service restored. This proves the installed native write path;
+it does not constitute public OAuth mutation acceptance or a new UI observation.
+
+An independent HTTP regression additionally proves that client disconnect after
+dispatch does not cancel the effect, shutdown draining waits for it, and replay
+returns the persisted outcome without a second mutation.
+
+## Scope correction
+
+The owner explicitly prohibited unsolicited client installation and authorization
+windows. Claude Code configuration and credentials were removed and its pending
+login canceled. Codex remains authorized for development. Other agent rollout is
+outside this implementation's acceptance scope. No further client connections or
+browser authorization flows may be initiated without a new owner instruction.

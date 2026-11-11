@@ -1,9 +1,10 @@
 import { fstatSync, mkdirSync, readFileSync, statSync } from "node:fs";
-import { dirname, isAbsolute, resolve } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import type { Trust } from "./assertion.ts";
 import { exact, Fault, text } from "./contract.ts";
 import { httpServer } from "./http.ts";
 import { Journal } from "./journal.ts";
+import { verifyLock } from "./lock.ts";
 import { Native } from "./native.ts";
 import { Service } from "./service.ts";
 
@@ -49,8 +50,12 @@ const lockFd = Number(process.env.THINGS_EXECUTOR_LOCK_FD);
 if (!Number.isInteger(lockFd) || lockFd < 3 || !fstatSync(lockFd).isFile())
   throw new Fault("executor_lock_required");
 const journalPath = resolve(config.journal as string);
+verifyLock(
+  join(dirname(config.nativePath as string), "Things MCP"),
+  join(dirname(journalPath), "executor.lock"),
+);
 mkdirSync(dirname(journalPath), { recursive: true, mode: 0o700 });
-const journal = new Journal(journalPath);
+const journal = new Journal(journalPath, true);
 journal.expire();
 const retentionTimer = setInterval(() => {
   try {
@@ -81,8 +86,10 @@ function stop() {
   service.accepting = false;
   clearInterval(retentionTimer);
   server.close(() => {
-    journal.close();
-    process.exit(0);
+    void service.queue.drain().then(() => {
+      journal.close();
+      process.exit(0);
+    });
   });
   setTimeout(() => process.exit(1), 30000).unref();
 }
