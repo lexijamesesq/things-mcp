@@ -52,7 +52,7 @@ export class Service {
       nativeScopes: ["inbox"],
       recurrence: "unknown",
       unsupportedReason:
-        "LaunchAgent, recurring occurrence, date, scope, and lifecycle acceptance gates remain open",
+        "Dates, parent/tag editing, recurrence-rule editing, and broader list scopes are not supported in this release",
       shortcuts: false,
       startup: {
         automatic: true,
@@ -93,7 +93,11 @@ export class Service {
     }
   }
   private async execute(tool: string, args: unknown, p: Principal): Promise<unknown> {
-    if (!this.accepting) throw new Fault("shutting_down");
+    if (
+      !this.accepting &&
+      !["things_status", "things_capabilities", "things_operation_status"].includes(tool)
+    )
+      throw new Fault("service_unavailable");
     if (tool === "things_operation_status") {
       exact(args, ["operationId"]);
       uuid(args.operationId);
@@ -121,15 +125,17 @@ export class Service {
         if (nativeError) this.lastError = { code: nativeError, at: new Date().toISOString() };
         return {
           schemaVersion: 1,
-          service: "running",
+          service: this.accepting ? "running" : "degraded",
           protocol: "MCP",
           writes: {
-            ready: this.writesEnabled && native.ok && journalAccessible,
-            reason: !this.writesEnabled
-              ? "release_gates_pending"
-              : !journalAccessible
-                ? "journal_unavailable"
-                : nativeError,
+            ready: this.accepting && this.writesEnabled && native.ok && journalAccessible,
+            reason: !this.accepting
+              ? "service_unavailable"
+              : !this.writesEnabled
+                ? "release_gates_pending"
+                : !journalAccessible
+                  ? "journal_unavailable"
+                  : nativeError,
           },
           native: {
             ready: native.ok,

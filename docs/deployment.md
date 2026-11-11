@@ -1,6 +1,7 @@
 # Deployment record
 
-The deployment is a read-only acceptance candidate. Production mutations remain disabled.
+The installed runtime enables the qualified title, notes, and status write surface.
+Existing client grants retain their scopes; deployment never widens a grant.
 
 ## Resources
 
@@ -25,7 +26,9 @@ exclude `/_origin/*`. No other existing tunnel or application was modified.
 
 ## Studio installation
 
-Runtime: `~/Library/Application Support/ThingsMCP/releases/0.1.0`.
+Runtime releases live under `~/Library/Application Support/ThingsMCP/releases/`.
+The service plist identifies the active JavaScript release. The qualified native
+executables remain at their original `releases/0.1.0/build` paths.
 Configuration and state are under the same ThingsMCP directory with owner-only
 permissions. The temporary local acceptance signing key has been removed.
 
@@ -42,17 +45,43 @@ The Things MCP launcher holds a kernel lock inherited by every native helper.
 - `doctor` checks configuration permissions, SQLite integrity and installation.
 - `retention` removes expired results while preserving operation tombstones.
 - `backup /absolute/new/path.sqlite` uses SQLite's consistent backup API.
+- `restore /absolute/backup.sqlite` merges identities and stage evidence into the
+  existing journal, preserves expiry, rejects collisions, and guards retries.
+- `activate RELEASE` verifies and selects a packaged compatible JavaScript release.
 - `reconcile OPERATION_ID` reads only an already-recorded native ID. It reports
   current state without attributing changes or authorizing replay.
 
-Stop the service before retention, backup, or reconciliation. These commands acquire
+Stop the service before retention, backup, restore, or reconciliation. These commands acquire
 the same executor lock, so they also refuse access while a surviving helper holds
 it. Reconciliation runs under the operator's Automation identity and never prompts
 or launches Things. Authenticated `things_status` checks the installed service's
 identity and never launches Things.
 
-Restore and rollback procedures are still release gates. Do not replace the live
-journal with an older backup: doing so could discard newer replay tombstones.
+Restore refuses a missing, truncated, or incomplete live journal. A backup cannot
+prove that newer operation identities were not lost. Never replace the live journal
+with an older backup. If current tombstones are unrecoverable, keep writes disabled
+and investigate rather than manufacturing empty deduplication state.
+
+## Package, activate, and roll back
+
+After checks pass and the candidate is committed with a clean working tree, run
+`node scripts/package-release.mjs RELEASE`. This creates an owner-only immutable
+release directory and a manifest of source, binaries, and dependency hashes.
+Release names cannot be reused. Keep the last verified compatible package.
+
+Stop the service, take a journal backup to a new absolute path, then run
+`things activate RELEASE` followed by `things start`. Use authenticated
+`things_status` and `things_capabilities` to verify readiness. Activation does not
+start the service or change trust, scopes, native executables, or journal contents.
+A different native binary requires separate installation qualification.
+
+To roll back, stop the service and activate the retained compatible package, then
+start and verify it. Never restore an old journal as part of code rollback.
+The plist and operator wrapper are staged before replacement; their replacements
+are not crash-atomic as a pair. After an interrupted activation, leave the service
+stopped, inspect both paths, and rerun activation of the intended verified package.
+Both pointers must select compatible runtimes before starting. The previous plist
+is retained as `previous-activation.plist` for inspection, not as a journal backup.
 
 ## Independent validation
 
@@ -72,3 +101,56 @@ The validator reproduced a Chrome consent callback blocked by form-action CSP.
 The implementation now completes consent with a nonce-protected navigation document
 whose callback comes from provider validation. The independent post-fix Chrome test passed approval, denial, adversarial state,
 injection controls, no-referrer behavior, and CSP enforcement.
+
+## Installed release verification
+
+Release `0.1.1-f638054` runs source commit `f638054`. Authenticated calls through
+an existing read-only development grant returned write readiness, the qualified
+capabilities, and the completed disposable fixture. No grant scope changed.
+After rollback to the retained original runtime and reactivation, an authenticated
+status call again reported write and native readiness.
+
+The installed release inventory matches its manifest; the helper and launcher
+remain byte-identical to the qualified native binaries. Doctor and SQLite integrity
+checks passed. The rollback drill preserved configuration and the live journal;
+that journal was empty, so populated tombstone preservation is covered by the
+isolated behavioral tests, not by this live drill.
+
+The original runtime predates manifests. Its plist and operator wrapper are retained
+in the owner-only `rollback-before-0.1.1-f638054` directory with the consistent
+pre-activation journal backup. That original rollback was performed by restoring
+those pointers while stopped, without replacing the journal. Future packaged
+releases use the verified `activate` command described above.
+
+## Repository workflow
+
+This public repository uses the canonical estate CI caller, public content policy,
+MIT license, native hooks, and central Renovate configuration. `npm test` runs
+Vitest. The main-only `default-branch` environment holds the four standard CI
+inputs, delivered through native secret custody rather than repository files.
+
+`Shared / Pre-Merge Checks` is bound to the observed GitHub Actions reporter.
+Separate review, update, and check rules protect the default branch; immutable
+release tags have their own rule. GitHub secret scanning and push protection are
+enabled, and Actions cannot approve pull requests. Margot reviews and Ollie handles
+normal merges once its watched-list enrollment is deployed. The signed Ollie review
+webhook accepts only pull-request-review events.
+
+## Revocation and secure recovery
+
+OAuth discovery advertises the provider's revocation endpoint at `/oauth/token`.
+A client revokes its own grant using an RFC 7009 form request with its client ID,
+token, and appropriate token type hint. Send credentials only in the request body
+over HTTPS through the client's credential handling; never put them in shell
+arguments, logs, or this repository. Local provider tests establish grant revocation;
+production KV propagation time remains unmeasured. Local logout alone is not a
+claim that a server-side grant was revoked.
+
+For immediate containment, stop the service. Keep the journal and configuration
+owner-only. Restore configuration only from a trusted owner-held copy, and verify
+owner, issuer, audience, key IDs, executable paths, and permissions before restart.
+Use journal merge recovery rather than replacement so current tombstones survive.
+For a signing-key rotation, install the new public verification key before changing
+the Worker signer, retain the previous verification key through in-flight assertion
+expiry, and verify authenticated access before retiring it. Do not rotate keys or
+revoke a live grant merely to repeat deployment checks.

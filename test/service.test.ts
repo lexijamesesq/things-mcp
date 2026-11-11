@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type TestContext, test } from "node:test";
+import { type TestContext, test } from "vitest";
 import { Journal } from "../src/journal.ts";
 import { Native, type NativeReply } from "../src/native.ts";
 import { Service } from "../src/service.ts";
@@ -44,7 +44,7 @@ const owner = {
 function fixture(t: TestContext) {
   const dir = mkdtempSync(join(tmpdir(), "things-service-"));
   const j = new Journal(join(dir, "journal.sqlite"));
-  t.after(() => {
+  t.onTestFinished(() => {
     j.close();
     rmSync(dir, { recursive: true, force: true });
   });
@@ -155,4 +155,68 @@ test("readiness observes unavailable native access without starting Things", asy
   assert.equal(result.writes.ready, false);
   assert.equal(result.native.permission, "required");
   assert.equal(result.journal, "accessible");
+});
+
+test("degraded service preserves diagnostics while rejecting task admission", async (t) => {
+  const { service, native } = fixture(t);
+  service.accepting = false;
+  const status = (await service.call("things_status", {}, owner)) as {
+    service: string;
+    writes: { ready: boolean };
+  };
+  assert.equal(status.service, "degraded");
+  assert.equal(status.writes.ready, false);
+  await service.call("things_capabilities", {}, owner);
+  await assert.rejects(
+    service.call("things_create", { operationId: randomUUID(), title: "blocked" }, owner),
+    /service_unavailable/,
+  );
+  assert.equal(native.writes, 0);
+});
+
+test("two-field update preserves its first stage and never replays after second-stage failure", async (t) => {
+  for (const ambiguous of [false, true]) {
+    const { service, native, j } = fixture(t);
+    const originalCall = native.call.bind(native);
+    let titleCalls = 0,
+      notesCalls = 0;
+    native.call = async (request) => {
+      if (request.operation === "set_title") titleCalls++;
+      if (request.operation === "set_notes") {
+        notesCalls++;
+        if (ambiguous) throw new Error("response lost after possible notes change");
+        return { ok: false, dispatched: false, error: "unavailable" };
+      }
+      return originalCall(request);
+    };
+    const current = await service.read("native-id");
+    const args = {
+      operationId: randomUUID(),
+      id: "native-id",
+      expectedRevision: current.revision,
+      title: "First stage applied",
+      notes: "Second stage",
+    };
+    const outcome = (await service.call("things_update", args, owner)) as { outcome: string };
+    assert.equal(outcome.outcome, ambiguous ? "uncertain" : "partial");
+    assert.equal(native.item.title, args.title);
+    const stages = j.db
+      .prepare("SELECT number,state FROM stages WHERE operation_id=? ORDER BY number")
+      .all(args.operationId);
+    assert.deepEqual(stages, [
+      { number: 0, state: "applied" },
+      { number: 1, state: ambiguous ? "uncertain" : "not_dispatched" },
+    ]);
+    const replay = (await service.call("things_update", args, owner)) as { outcome: string };
+    assert.equal(replay.outcome, outcome.outcome);
+    assert.equal(titleCalls, 1);
+    assert.equal(notesCalls, 1);
+    const status = (await service.call(
+      "things_operation_status",
+      { operationId: args.operationId },
+      owner,
+    )) as { stages: { number: number; outcome: string; result: { title?: string } }[] };
+    assert.equal(status.stages[0].outcome, "applied");
+    assert.equal(status.stages[0].result.title, args.title);
+  }
 });

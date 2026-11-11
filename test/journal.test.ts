@@ -3,13 +3,13 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { type TestContext, test } from "node:test";
+import { type TestContext, test } from "vitest";
 import { Journal, SerialQueue } from "../src/journal.ts";
 
 const p = { owner: "owner", client: "client", grant: "grant", scopes: ["things.create"] };
 function fixture(t: TestContext) {
   const dir = mkdtempSync(join(tmpdir(), "things-journal-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   return join(dir, "journal.sqlite");
 }
 test("durable owner-global dedupe and client boundary survive reopen and grant rotation", (t) => {

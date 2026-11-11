@@ -4,7 +4,10 @@ import { homedir } from "node:os";
 import { isAbsolute, join } from "node:path";
 import Database from "better-sqlite3";
 import { Journal } from "./journal.ts";
+import { verifyLock } from "./lock.ts";
 import { Native } from "./native.ts";
+import { activateRelease } from "./release.ts";
+import { mergeBackup } from "./restore.ts";
 
 process.umask(0o077);
 const base = join(homedir(), "Library/Application Support/ThingsMCP");
@@ -37,7 +40,7 @@ if (command === "doctor") {
           journal: check === "ok" ? "healthy" : "check_failed",
           launchAgent: service.status === 0 ? "loaded" : "not_loaded",
           nativeExecutable: existsSync(config.nativePath),
-          writesEnabled: false,
+          writeReadiness: "Use authenticated things_status for live readiness",
           nativeReadiness:
             "Use authenticated things_status for the actual service Automation identity",
         },
@@ -48,7 +51,7 @@ if (command === "doctor") {
   } finally {
     db.close();
   }
-} else if (["retention", "backup", "reconcile"].includes(command)) {
+} else if (["retention", "backup", "reconcile", "restore", "activate"].includes(command)) {
   // Maintenance is exclusive with the service and surviving native helpers.
   if (!process.env.THINGS_EXECUTOR_LOCK_FD) {
     run(join(base, "releases/0.1.0/build/Things MCP"), [
@@ -59,8 +62,19 @@ if (command === "doctor") {
       ...(argument ? [argument] : []),
     ]);
   }
-  const journal = new Journal(config.journal);
+  verifyLock(join(base, "releases/0.1.0/build/Things MCP"), join(base, "state/executor.lock"));
+  const journal = new Journal(config.journal, true);
   try {
+    if (command === "activate") {
+      if (!argument) throw new Error("release_name_required");
+      console.log(JSON.stringify(activateRelease(base, argument, config, plist)));
+    }
+    if (command === "restore") {
+      if (!argument || !isAbsolute(argument) || argument === config.journal)
+        throw new Error("separate_absolute_backup_path_required");
+      console.log(JSON.stringify(mergeBackup(journal, argument, config.trust.owner)));
+      journal.expire();
+    }
     if (command === "retention") {
       journal.expire();
       console.log("Retention complete; operation tombstones preserved.");
@@ -89,7 +103,7 @@ if (command === "doctor") {
           {
             operationId: argument,
             outcome: row.state,
-            reconciled: true,
+            reconciled: reply.ok,
             provesOriginalEffect: false,
             current: reply,
           },
@@ -103,6 +117,6 @@ if (command === "doctor") {
   }
 } else {
   throw new Error(
-    "usage: things status|start|stop|logs|doctor|retention|backup ABSOLUTE_NEW_PATH|reconcile OPERATION_ID",
+    "usage: things status|start|stop|logs|doctor|retention|backup ABSOLUTE_NEW_PATH|restore ABSOLUTE_BACKUP_PATH|reconcile OPERATION_ID|activate RELEASE",
   );
 }

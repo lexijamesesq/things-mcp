@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
 import { exportJWK, generateKeyPair, jwtVerify } from "jose";
+import { test } from "vitest";
 import { forward } from "../worker/proxy.ts";
 
 test("gateway strips caller identity, binds exact payload, and never retries a failed origin", async () => {
