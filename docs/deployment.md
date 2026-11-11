@@ -122,14 +122,19 @@ pre-activation journal backup. That original rollback was performed by restoring
 those pointers while stopped, without replacing the journal. Future packaged
 releases use the verified `activate` command described above.
 
-## Repository delivery status
+## Repository workflow
 
-The runtime source is pushed on `harden-operator-recovery`. Standard merge settings
-are applied and `default-branch` permits only the `main` branch. Dotty enrollment
-is merged and present in the published producer policy. The four standard CI
-inputs are delivered through native secret custody. A real hosted caller run,
-observed reporter bindings, branch protections, and merger enrollment remain pending. Source verification and
-installed runtime acceptance do not stand in for those repository checks.
+This public repository uses the canonical estate CI caller, public content policy,
+MIT license, native hooks, and central Renovate configuration. `npm test` runs
+Vitest. The main-only `default-branch` environment holds the four standard CI
+inputs, delivered through native secret custody rather than repository files.
+
+`Shared / Pre-Merge Checks` is bound to the observed GitHub Actions reporter.
+Separate review, update, and check rules protect the default branch; immutable
+release tags have their own rule. GitHub secret scanning and push protection are
+enabled, and Actions cannot approve pull requests. Margot reviews and Ollie handles
+normal merges once its watched-list enrollment is deployed. The signed Ollie review
+webhook accepts only pull-request-review events.
 
 ## Revocation and secure recovery
 

@@ -1,5 +1,4 @@
 import { spawnSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import {
   chmodSync,
   copyFileSync,
@@ -10,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { artifactHashes } from "./artifact.ts";
+import { artifactHashes, fileHash } from "./artifact.ts";
 import { Fault } from "./contract.ts";
 
 export function activateRelease(
@@ -39,10 +38,7 @@ export function activateRelease(
   // Ordinary activation changes the JS runtime only. Native upgrades require an
   // explicit installation qualification; never mutate an immutable old release.
   for (const binary of ["things-bridge", "Things MCP"]) {
-    const current = createHash("sha256")
-      .update("file\0")
-      .update(readFileSync(join(dirname(config.nativePath), binary)))
-      .digest("hex");
+    const current = fileHash(join(dirname(config.nativePath), binary));
     if (current !== hashes[`build/${binary}`])
       throw new Fault("native_upgrade_requires_qualification");
   }
@@ -52,6 +48,7 @@ export function activateRelease(
   if (read.status !== 0) throw new Fault("launchagent_unreadable");
   const job = JSON.parse(read.stdout);
   if (job.ProgramArguments[2] !== process.execPath) throw new Fault("node_identity_mismatch");
+  const changingRelease = job.ProgramArguments[3] !== join(release, "src/main.ts");
   job.ProgramArguments[3] = join(release, "src/main.ts");
   const output = spawnSync("/usr/bin/plutil", ["-convert", "xml1", "-o", "-", "--", "-"], {
     input: JSON.stringify(job),
@@ -70,8 +67,10 @@ export function activateRelease(
     `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(join(release, "src/operator.ts"))} "$@"\n`,
     { mode: 0o700 },
   );
-  copyFileSync(plist, previous);
-  chmodSync(previous, 0o600);
+  if (changingRelease) {
+    copyFileSync(plist, previous);
+    chmodSync(previous, 0o600);
+  }
   try {
     renameSync(`${plist}.next`, plist);
     renameSync(`${cli}.next`, cli);

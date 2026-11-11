@@ -49,8 +49,8 @@ Dates, tags, parents, recurrence-rule editing, and broader list scopes remain
 unsupported. Recurrence schedule and extra-occurrence inventory are not exposed.
 Public OAuth mutation acceptance, production revocation propagation, and live key
 rotation remain unmeasured. The existing Codex development grant stays read-only.
-Estate repository enrollment, environment provisioning, and protections remain
-unfinished; those are separate from the qualified runtime deployment.
+Repository enrollment and protections use the standard estate workflow described
+in the deployment guide. They are separate from runtime capability qualification.
 
 ## Architecture clarification
 

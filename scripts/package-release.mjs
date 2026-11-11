@@ -5,7 +5,7 @@ import { cpSync, existsSync, mkdirSync, renameSync, writeFileSync } from "node:f
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { artifactHashes } from "../src/artifact.ts";
+import { artifactHashes, RUNTIME_PATHS } from "../src/artifact.ts";
 
 process.umask(0o077);
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -18,7 +18,7 @@ const destination = join(homedir(), "Library/Application Support/ThingsMCP/relea
 if (existsSync(destination)) throw new Error("release_already_exists");
 const staging = destination + ".staging";
 mkdirSync(staging, { recursive: false, mode: 0o700 });
-for (const path of ["src", "build", "node_modules", "package.json", "package-lock.json"])
+for (const path of RUNTIME_PATHS)
   cpSync(join(root, path), join(staging, path), {
     recursive: true,
     errorOnExist: true,

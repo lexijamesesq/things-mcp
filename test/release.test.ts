@@ -15,7 +15,7 @@ function fixture(t: TestContext) {
     mkdirSync(directory, { recursive: true, mode: 0o700 });
     const files: Record<string, string> = {
       "src/main.ts": `// ${name} main`,
-      "src/operator.ts": `// ${name} operator`,
+      "src/operator.ts": `console.log(JSON.stringify({release:${JSON.stringify(name)},args:process.argv.slice(2)}));`,
       "src/contract.ts": `// ${name} contract`,
       "build/things-bridge": "qualified bridge",
       "build/Things MCP": "qualified launcher",
@@ -66,13 +66,35 @@ function fixture(t: TestContext) {
   return { base, old, next, config, plist };
 }
 
-test("activation preserves a previous release so a verified rollback remains possible", (t) => {
+test("activation switches both runtime pointers and preserves rollback across a retry", (t) => {
   const { base, old, next, config, plist } = fixture(t);
   const before = readFileSync(join(old, "build/things-bridge"), "utf8");
+  const selectedMain = (path: string) => {
+    const result = spawnSync("/usr/bin/plutil", ["-convert", "json", "-o", "-", path], {
+      encoding: "utf8",
+    });
+    assert.equal(result.status, 0);
+    return JSON.parse(result.stdout).ProgramArguments[3];
+  };
+  const selectedOperator = () => {
+    const result = spawnSync(join(base, "things"), ["status"], { encoding: "utf8" });
+    assert.equal(result.status, 0);
+    return JSON.parse(result.stdout);
+  };
+  const previous = join(base, "previous-activation.plist");
   activateRelease(base, "next", config, plist);
+  assert.equal(selectedMain(plist), join(next, "src/main.ts"));
+  assert.deepEqual(selectedOperator(), { release: "next", args: ["status"] });
+  assert.equal(selectedMain(previous), join(old, "src/main.ts"));
+  // An interrupted activation can be retried after the plist already switched.
+  // Retrying the same target must not lose the prior runtime pointer.
+  activateRelease(base, "next", config, plist);
+  assert.equal(selectedMain(previous), join(old, "src/main.ts"));
+  activateRelease(base, "old", config, plist);
+  assert.equal(selectedMain(plist), join(old, "src/main.ts"));
+  assert.deepEqual(selectedOperator(), { release: "old", args: ["status"] });
+  assert.equal(selectedMain(previous), join(next, "src/main.ts"));
   assert.equal(readFileSync(join(old, "build/things-bridge"), "utf8"), before);
-  assert.equal(readFileSync(join(next, "build/things-bridge"), "utf8"), "qualified bridge");
-  assert.doesNotThrow(() => activateRelease(base, "old", config, plist));
   assert.equal(readFileSync(join(base, "config.json"), "utf8"), "trust configuration sentinel");
   assert.equal(readFileSync(join(base, "journal.sqlite"), "utf8"), "journal sentinel");
 });

@@ -15,8 +15,7 @@ developer tools.
 The qualified runtime supports Inbox listing, reads by native ID, task creation,
 title and notes edits, notes clearing, completion, and reopening. Dates, tags,
 parent changes, recurrence rules, and broader list scopes remain unsupported.
-Repository CI enrollment and provisioning remain in progress. See
-[acceptance evidence](docs/acceptance.md) and the
+See [acceptance evidence](docs/acceptance.md) and the
 [build specification](docs/build-specification.md).
 
 Task operations remain silent. When Things is closed, the service opens it automatically,
