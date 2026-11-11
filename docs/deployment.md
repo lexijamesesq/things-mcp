@@ -1,6 +1,6 @@
 # Deployment record
 
-The runtime candidate enables the qualified title, notes, and status write surface.
+The installed runtime enables the qualified title, notes, and status write surface.
 Existing client grants retain their scopes; deployment never widens a grant.
 
 ## Resources
@@ -101,3 +101,51 @@ The validator reproduced a Chrome consent callback blocked by form-action CSP.
 The implementation now completes consent with a nonce-protected navigation document
 whose callback comes from provider validation. The independent post-fix Chrome test passed approval, denial, adversarial state,
 injection controls, no-referrer behavior, and CSP enforcement.
+
+## Installed release verification
+
+Release `0.1.1-f638054` runs source commit `f638054`. Authenticated calls through
+an existing read-only development grant returned write readiness, the qualified
+capabilities, and the completed disposable fixture. No grant scope changed.
+After rollback to the retained original runtime and reactivation, an authenticated
+status call again reported write and native readiness.
+
+The installed release inventory matches its manifest; the helper and launcher
+remain byte-identical to the qualified native binaries. Doctor and SQLite integrity
+checks passed. The rollback drill preserved configuration and the live journal;
+that journal was empty, so populated tombstone preservation is covered by the
+isolated behavioral tests, not by this live drill.
+
+The original runtime predates manifests. Its plist and operator wrapper are retained
+in the owner-only `rollback-before-0.1.1-f638054` directory with the consistent
+pre-activation journal backup. That original rollback was performed by restoring
+those pointers while stopped, without replacing the journal. Future packaged
+releases use the verified `activate` command described above.
+
+## Repository delivery status
+
+The runtime source is pushed on `harden-operator-recovery`. Standard merge settings
+are applied and `default-branch` permits only the `main` branch. Dotty enrollment
+is approved in the producer pull request but awaits the owner-controlled merge and
+release. CI secret delivery, a real hosted caller run, observed reporter bindings,
+branch protections, and merger enrollment remain pending. Source verification and
+installed runtime acceptance do not stand in for those repository checks.
+
+## Revocation and secure recovery
+
+OAuth discovery advertises the provider's revocation endpoint at `/oauth/token`.
+A client revokes its own grant using an RFC 7009 form request with its client ID,
+token, and appropriate token type hint. Send credentials only in the request body
+over HTTPS through the client's credential handling; never put them in shell
+arguments, logs, or this repository. Local provider tests establish grant revocation;
+production KV propagation time remains unmeasured. Local logout alone is not a
+claim that a server-side grant was revoked.
+
+For immediate containment, stop the service. Keep the journal and configuration
+owner-only. Restore configuration only from a trusted owner-held copy, and verify
+owner, issuer, audience, key IDs, executable paths, and permissions before restart.
+Use journal merge recovery rather than replacement so current tombstones survive.
+For a signing-key rotation, install the new public verification key before changing
+the Worker signer, retain the previous verification key through in-flight assertion
+expiry, and verify authenticated access before retiring it. Do not rotate keys or
+revoke a live grant merely to repeat deployment checks.

@@ -126,3 +126,12 @@ journal schema, and native binary compatibility before switching service files.
 Independent release review covered tampering, staging failures, incompatible
 native changes, and symlink escape. Ordinary activation preserves the journal,
 trust configuration, and qualified native executable identity.
+
+## Installed activation milestone
+
+The reviewed runtime is deployed as `0.1.1-f638054`. Existing authenticated reads
+confirmed write readiness and narrow capabilities, with the disposable fixture
+still completed. Rollback and reactivation preserved trust configuration and the
+empty production journal. A fresh authenticated status check passed afterward.
+Independent installed validation checked the runtime inventory, native identity,
+LaunchAgent target, and journal integrity. No new client authorization was needed.
