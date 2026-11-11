@@ -16,7 +16,8 @@ minor-version increment. Local installation directory labels are not public
 release versions.
 
 Run `npm run typecheck`, the relevant existing Vitest suites, `npm run build:native`
-on macOS, and `npm run build:worker`. Validate changes through the normal pull
+on macOS, and `THINGS_SIGNING_KID=local-check npm run build:worker` for a local
+build check. Deployment must use the installation's actual key ID. Validate changes through the normal pull
 request checks and independent review. Release automation runs only after the
 reviewed change reaches `main`; it does not merge pull requests or bypass branch
 protections.
@@ -26,6 +27,7 @@ protections.
 The `release-tag` job in `.github/workflows/ci.yml` reads the package version after
 each main push. It runs the existing release script against the root package,
 creates an annotated tag if missing, and creates generated GitHub release notes.
+Release jobs share a concurrency group without canceling an active publication.
 Only this job receives `contents: write`. An existing tag is never moved: retries
 resolve its own commit and finish the release for that source.
 

@@ -243,8 +243,10 @@ Set these build-time variables before building or deploying:
 | `THINGS_ACCESS_ISSUER` | `https://YOUR_TEAM.cloudflareaccess.com` |
 | `THINGS_SIGNING_KID` | Key ID in local `trust.keys`, initially `initial` |
 
-The pinned `cf` CLI reads `cloudflare.config.ts`. Its placeholder defaults allow
-local builds; they are not deployable production settings. Use `npx cf auth login` for
+The pinned `cf` CLI reads `cloudflare.config.ts`. The signing key ID is required
+even for local build checks, so an omitted value cannot silently change an existing
+installation's signer. The other placeholder defaults are not deployable production
+settings. Use `npx cf auth login` for
 interactive Cloudflare administration, or supply `CLOUDFLARE_API_TOKEN` and
 `CLOUDFLARE_ACCOUNT_ID` through your secret manager for CI. The token needs permission
 to deploy this Worker's configured resources.

@@ -41,17 +41,28 @@ while stopped; it does not reclaim operation IDs for reuse.
 
 Check out a reviewed release tag and rebuild dependencies and native helpers on
 the target Mac. Run the relevant checks, then package the clean source under a new
-local directory label:
+local directory label. Set `THINGS_SERVICE_LABEL` to the label of the existing
+LaunchAgent, which may differ from the new-install default below. Read its pinned
+Node path from that plist:
 
 ```sh
-node scripts/package-release.mjs NEW_RELEASE_LABEL
+export THINGS_SERVICE_LABEL='org.things-mcp.service'
+export THINGS_PLIST="$HOME/Library/LaunchAgents/$THINGS_SERVICE_LABEL.plist"
+export THINGS_NODE="$(/usr/libexec/PlistBuddy -c 'Print :ProgramArguments:2' "$THINGS_PLIST")"
+"$THINGS_NODE" scripts/package-release.mjs NEW_RELEASE_LABEL
 "$THINGS_BASE/things" stop
 "$THINGS_BASE/things" backup "$THINGS_BASE/state/before-upgrade.sqlite"
-"$THINGS_BASE/things" activate NEW_RELEASE_LABEL
+"$THINGS_NODE" "$THINGS_BASE/releases/NEW_RELEASE_LABEL/src/operator.ts" activate NEW_RELEASE_LABEL
 "$THINGS_BASE/things" start
 ```
 
-Use actual new names in place of the example labels. Verify authenticated readiness
+Use actual new names in place of the example release labels. Invoke the **candidate
+operator** for activation, as above: older installed operators generated wrappers
+without the service label. Calling an old `things activate` during this transition
+can leave the new operator targeting the wrong LaunchAgent. The candidate operator
+uses the explicit existing label and writes it into the new wrapper.
+
+Verify authenticated readiness
 before further task access. Activation verifies the inventory, exact Node version,
 journal schema, and byte-identical native binaries. It updates the JavaScript
 entrypoint and operator wrapper while preserving configuration, journal, and the
@@ -78,7 +89,9 @@ activation of the same release preserves the previous-release pointer.
 Worker upgrades are separate: build from the intended tag with the installation's
 build variables and deploy with its protected secrets file as in the installation
 guide. Preserve the signer key ID and matching local public key. A new default in
-source must not silently replace an installed trust value.
+source must not silently replace an installed trust value. Builds require
+`THINGS_SIGNING_KID` explicitly; use the installed value, not the documentation's
+local-build placeholder.
 
 ## Interrupted writes and journal recovery
 

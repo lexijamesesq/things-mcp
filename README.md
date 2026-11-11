@@ -140,8 +140,11 @@ even when a caller can reach the origin.
 ```sh
 npm run typecheck
 npm test
-npm run build:worker
+THINGS_SIGNING_KID=local-check npm run build:worker
 ```
+
+The `local-check` key ID is for build verification only; deployment must use the
+key ID trusted by the installed service.
 
 Tests use Vitest and isolated fixtures; manual live acceptance scripts are excluded
 from the default suite. See [release maintenance](docs/releases.md) for versioning,

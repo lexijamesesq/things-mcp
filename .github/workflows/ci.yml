@@ -26,6 +26,9 @@ jobs:
 
   release-tag:
     name: ci / release-tag
+    concurrency:
+      group: things-mcp-release
+      cancel-in-progress: false
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 10
