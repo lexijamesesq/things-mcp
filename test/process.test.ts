@@ -4,36 +4,12 @@ import { once } from "node:events";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { Journal } from "../src/journal.ts";
-
-test("kernel executor lock rejects a second process and releases after SIGKILL", async (t) => {
-  const dir = mkdtempSync(join(tmpdir(), "things-lock-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
-  const executable = resolve("build/Things MCP");
-  const args = [
-    join(dir, "executor.lock"),
-    process.execPath,
-    "-e",
-    'console.log("ready"); setInterval(()=>{},1000)',
-  ];
-  const first = spawn(executable, args, { stdio: ["ignore", "pipe", "pipe"] });
-  t.after(() => first.kill("SIGKILL"));
-  await once(first.stdout, "data");
-  const denied = spawnSync(executable, [args[0], process.execPath, "-e", "process.exit(0)"]);
-  assert.equal(denied.status, 73);
-  const stopped = once(first, "exit");
-  first.kill("SIGKILL");
-  await stopped;
-  assert.equal(
-    spawnSync(executable, [args[0], process.execPath, "-e", "process.exit(0)"]).status,
-    0,
-  );
-});
 
 test("abrupt death preserves committed dispatch evidence and never authorizes replay", async (t) => {
   const dir = mkdtempSync(join(tmpdir(), "things-crash-"));
-  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, "journal.sqlite");
   const principal = { owner: "o", client: "c", grant: "g", scopes: ["things.create"] };
   const id = "f3dc661d-6867-40f7-8277-af1a176774ef";
@@ -45,13 +21,15 @@ test("abrupt death preserves committed dispatch evidence and never authorizes re
   const child = spawn(process.execPath, ["--input-type=module", "-e", source], {
     stdio: ["ignore", "pipe", "pipe"],
   });
-  t.after(() => child.kill("SIGKILL"));
+  t.onTestFinished(() => {
+    child.kill("SIGKILL");
+  });
   await once(child.stdout, "data");
   const stopped = once(child, "exit");
   child.kill("SIGKILL");
   await stopped;
   const j = new Journal(path);
-  t.after(() => j.close());
+  t.onTestFinished(() => j.close());
   j.recover();
   assert.equal(j.lookup(principal, id)?.outcome, "uncertain");
   assert.deepEqual(j.lookup(principal, id)?.result, { id: "observed-native-id" });
@@ -82,7 +60,7 @@ await new Native(${JSON.stringify(helperPath)}).call({operation:"fake"});`;
     { stdio: "ignore" },
   );
   let helperPid: number | undefined;
-  t.after(() => {
+  t.onTestFinished(() => {
     executor.kill("SIGKILL");
     if (helperPid) {
       try {

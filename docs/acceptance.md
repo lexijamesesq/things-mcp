@@ -35,13 +35,22 @@ These are native-helper checks, not end-to-end deployed MCP mutation checks.
 Dates, the recurrence rule, and additional generated occurrences were not exposed
 by this adapter, so this does not establish that those remained unchanged.
 
-## Open release gates
+## Evidence limits and remaining delivery
 
-Locked and logged-out sessions;
-exit during native dispatch; recurrence schedule/occurrence inventory; native list scopes,
-pagination and dates; remaining multistage crash/disconnect boundaries; live
-Access/Tunnel authenticated denial matrix; server refresh and revocation; installed operator commands, backup, restore and rollback; estate
-repository enrollment and protections. Production writes remain disabled.
+Real locked-screen, logged-out, revoked-permission, and target-exit observations
+have not been performed. The owner declined interruption for a lock test. Tests
+compile the actual native bridge with controlled OS boundaries to verify session
+checks, permission handling, captured-process identity, noninteractive event flags,
+and bounded failures. Independent runtime review found no blocking defect for the
+narrow title, notes, and status surface; these controlled checks do not claim a
+live OS observation.
+
+Dates, tags, parents, recurrence-rule editing, and broader list scopes remain
+unsupported. Recurrence schedule and extra-occurrence inventory are not exposed.
+Public OAuth mutation acceptance, production revocation propagation, and live key
+rotation remain unmeasured. The existing Codex development grant stays read-only.
+Estate repository enrollment, environment provisioning, and protections remain
+unfinished; those are separate from the qualified runtime deployment.
 
 ## Architecture clarification
 
@@ -49,7 +58,7 @@ Use one hostname, the configured public hostname, with public OAuth/MCP endpoint
 service-protected /_origin/mcp path. Explicit global_fetch_strictly_public and a
 Worker route exclusion preserve public Access evaluation on origin subrequests.
 Require origin-AUD Access JWT validation at cloudflared as well as the local
-request-bound signed grant. The topology is deployed as a read-only acceptance candidate. Public discovery,
+request-bound signed grant. The topology supports the qualified runtime surface. Public discovery,
 MCP challenges, direct-origin denial, and unmatched-path denial passed. Authenticated
 Codex development reads passed before and after a service restart. See [deployment record](deployment.md).
 
@@ -72,9 +81,11 @@ and reproduced a Chrome CSP callback failure. After the fix, actual generated
 approval and denial pages reached the callback; adversarial client markup remained
 inert, with no referrer leakage or CSP violations.
 
-The current complete suite passes 29 tests. TypeScript checks and the native build
-pass. Browser reproductions live under `test/manual/`. These results do not replace
-live identity, origin-denial, real-client, or installed mutation acceptance.
+The existing behavioral suite passes under Vitest, including isolated OAuth,
+HTTP, journal recovery, process locking, native lifecycle, and release activation
+checks. TypeScript checks pass. The runner migration adds no test cases. Browser
+reproductions live under `test/manual/` and are excluded from the default suite.
+Controlled tests do not replace the installed observations described here.
 
 ## Installed native MCP writes
 
@@ -101,3 +112,17 @@ windows. Claude Code configuration and credentials were removed and its pending
 login canceled. Codex remains authorized for development. Other agent rollout is
 outside this implementation's acceptance scope. No further client connections or
 browser authorization flows may be initiated without a new owner instruction.
+
+## Recovery and release validation
+
+Independent review verified journal fail-closed behavior, retained stage evidence,
+expiry across restore, and refusal to replay ambiguous mutations. Actual gateway
+signatures are checked by the Studio verifier in the isolated integration suite.
+Live origin checks rejected a valid machine credential without a grant and with a
+forged grant; the temporary credential was removed afterward.
+
+Release activation verifies the runtime inventory, dependencies, Node version,
+journal schema, and native binary compatibility before switching service files.
+Independent release review covered tampering, staging failures, incompatible
+native changes, and symlink escape. Ordinary activation preserves the journal,
+trust configuration, and qualified native executable identity.

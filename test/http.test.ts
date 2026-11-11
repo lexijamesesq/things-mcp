@@ -3,8 +3,8 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
+import { test } from "vitest";
 import { binding } from "../src/assertion.ts";
 import { httpServer } from "../src/http.ts";
 import { Journal } from "../src/journal.ts";
@@ -29,7 +29,7 @@ test("real HTTP MCP denies unsigned requests and serves scoped stateless tool ca
   assert.ok(address && typeof address !== "string");
   hosts.push(`127.0.0.1:${address.port}`);
   const url = `http://127.0.0.1:${address.port}/mcp`;
-  t.after(async () => {
+  t.onTestFinished(async () => {
     await new Promise<void>((r) => server.close(() => r()));
     journal.close();
     rmSync(dir, { recursive: true, force: true });
@@ -124,7 +124,7 @@ test("client disconnect after dispatch does not cancel work or duplicate the mut
   const address = server.address();
   assert.ok(address && typeof address !== "string");
   hosts.push(`127.0.0.1:${address.port}`);
-  t.after(async () => {
+  t.onTestFinished(async () => {
     release();
     await service.queue.drain();
     await new Promise<void>((resolve) => server.close(() => resolve()));

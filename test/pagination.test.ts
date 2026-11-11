@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { test } from "vitest";
 import { Snapshots } from "../src/pagination.ts";
 
 const p = { owner: "o", client: "c", grant: "g", scopes: ["things.read"] };

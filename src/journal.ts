@@ -65,6 +65,17 @@ export class Journal {
       operationId: id,
       outcome: r.state,
       expired: Boolean(r.expired),
+      stages: (
+        this.db
+          .prepare(
+            "SELECT number,state,result FROM stages WHERE owner=? AND operation_id=? ORDER BY number",
+          )
+          .all(p.owner, id) as { number: number; state: string; result: string | null }[]
+      ).map((stage) => ({
+        number: stage.number,
+        outcome: stage.state,
+        result: r.expired ? null : stage.result ? JSON.parse(stage.result) : null,
+      })),
       result: r.expired ? { error: "result_expired" } : r.result ? JSON.parse(r.result) : null,
     };
   }
@@ -136,9 +147,20 @@ export class Journal {
   finish(owner: string, id: string, state: State, result: unknown) {
     if (!["conflict", "partial", "failed", "uncertain", "not_dispatched"].includes(state))
       throw new Fault("invalid_transition");
-    this.db
-      .prepare("UPDATE operations SET state=?,result=?,updated=? WHERE owner=? AND operation_id=?")
-      .run(state, JSON.stringify(result), Date.now(), owner, id);
+    this.db.transaction(() => {
+      if (["partial", "not_dispatched", "uncertain"].includes(state)) {
+        this.db
+          .prepare(
+            "UPDATE stages SET state=? WHERE owner=? AND operation_id=? AND state='dispatching'",
+          )
+          .run(state === "uncertain" ? "uncertain" : "not_dispatched", owner, id);
+      }
+      this.db
+        .prepare(
+          "UPDATE operations SET state=?,result=?,updated=? WHERE owner=? AND operation_id=?",
+        )
+        .run(state, JSON.stringify(result), Date.now(), owner, id);
+    })();
   }
   recover() {
     this.db.transaction(() => {
@@ -150,7 +172,8 @@ export class Journal {
           .prepare("SELECT state FROM stages WHERE owner=? AND operation_id=?")
           .all(r.owner, r.operation_id) as { state: string }[];
         const state =
-          r.state === "dispatching" || stages.some((s) => s.state === "dispatching")
+          r.state === "dispatching" ||
+          stages.some((s) => ["dispatching", "uncertain"].includes(s.state))
             ? "uncertain"
             : stages.some((s) => s.state === "applied")
               ? "partial"

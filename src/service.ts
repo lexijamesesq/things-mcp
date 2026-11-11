@@ -52,7 +52,7 @@ export class Service {
       nativeScopes: ["inbox"],
       recurrence: "unknown",
       unsupportedReason:
-        "LaunchAgent, recurring occurrence, date, scope, and lifecycle acceptance gates remain open",
+        "Dates, parent/tag editing, recurrence-rule editing, and broader list scopes are not supported in this release",
       shortcuts: false,
       startup: {
         automatic: true,

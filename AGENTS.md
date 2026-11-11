@@ -66,11 +66,13 @@ Author Git and GitHub work with the identity the environment already provides: t
 
 Use Node 26.13.0. Install with `npm ci`, compile the macOS helper with
 `npm run build:native`, and run `npm run typecheck` and `npm test` for affected
-runtime behavior. The native helper requires macOS and the logged-in Things owner.
+runtime behavior. `npm test` uses Vitest; extend existing behavioral coverage only
+for a demonstrated gap. Manual acceptance scripts are outside the default suite.
+The native helper requires macOS and the logged-in Things owner.
 
 Normal task access must be silent. If Things is closed, use bounded background-first
 startup; the owner accepts visible UI for startup only. Never prompt for Automation
 permission during runtime. Never retry an ambiguous mutation.
 
-The specification is in `docs/build-specification.md`. Production writes remain
-disabled until the open release gates in `docs/acceptance.md` are established.
+The specification is in `docs/build-specification.md`. The narrow title/notes/status write surface is qualified; retain the evidence limits
+and unsupported fields described in `docs/acceptance.md`.

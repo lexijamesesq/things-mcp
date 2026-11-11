@@ -13,12 +13,12 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { type TestContext, test } from "node:test";
+import { type TestContext, test } from "vitest";
 import { Journal } from "../src/journal.ts";
 
 function fixture(t: TestContext) {
   const root = mkdtempSync(join(tmpdir(), "things-operator-test-"));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const base = join(root, "Library/Application Support/ThingsMCP");
   mkdirSync(join(base, "state"), { recursive: true });
   mkdirSync(join(base, "releases/0.1.0/build"), { recursive: true });
@@ -56,7 +56,9 @@ test("operator rejects spoofed lock environment and independent descriptors whil
     [f.lockPath, process.execPath, "-e", 'console.log("ready");setInterval(()=>{},1000)'],
     { stdio: ["ignore", "pipe", "pipe"] },
   );
-  t.after(() => holder.kill("SIGKILL"));
+  t.onTestFinished(() => {
+    holder.kill("SIGKILL");
+  });
   await once(holder.stdout, "data");
   const invoke = (env = f.env) =>
     spawnSync(process.execPath, [f.operator, "retention"], { env, encoding: "utf8" });

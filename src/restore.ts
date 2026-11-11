@@ -80,7 +80,7 @@ export function mergeBackup(journal: Journal, backupPath: string, owner: string)
           stage.owner !== owner ||
           !Number.isInteger(stage.number) ||
           Number(stage.number) < 0 ||
-          !["dispatching", "applied"].includes(String(stage.state))
+          !["dispatching", "applied", "not_dispatched", "uncertain"].includes(String(stage.state))
         )
           throw new Fault("backup_invalid");
         const parent = journal.db

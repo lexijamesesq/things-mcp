@@ -1,6 +1,7 @@
 # Deployment record
 
-The deployment is a read-only acceptance candidate. Production mutations remain disabled.
+The runtime candidate enables the qualified title, notes, and status write surface.
+Existing client grants retain their scopes; deployment never widens a grant.
 
 ## Resources
 
@@ -25,7 +26,9 @@ exclude `/_origin/*`. No other existing tunnel or application was modified.
 
 ## Studio installation
 
-Runtime: `~/Library/Application Support/ThingsMCP/releases/0.1.0`.
+Runtime releases live under `~/Library/Application Support/ThingsMCP/releases/`.
+The service plist identifies the active JavaScript release. The qualified native
+executables remain at their original `releases/0.1.0/build` paths.
 Configuration and state are under the same ThingsMCP directory with owner-only
 permissions. The temporary local acceptance signing key has been removed.
 
@@ -44,6 +47,7 @@ The Things MCP launcher holds a kernel lock inherited by every native helper.
 - `backup /absolute/new/path.sqlite` uses SQLite's consistent backup API.
 - `restore /absolute/backup.sqlite` merges identities and stage evidence into the
   existing journal, preserves expiry, rejects collisions, and guards retries.
+- `activate RELEASE` verifies and selects a packaged compatible JavaScript release.
 - `reconcile OPERATION_ID` reads only an already-recorded native ID. It reports
   current state without attributing changes or authorizing replay.
 
@@ -58,11 +62,26 @@ prove that newer operation identities were not lost. Never replace the live jour
 with an older backup. If current tombstones are unrecoverable, keep writes disabled
 and investigate rather than manufacturing empty deduplication state.
 
-Rollback must preserve the current journal and trust configuration. Stop both
-LaunchAgents, retain the current release, point the service job to a previously
-verified compatible release, and restart. Do not downgrade the journal schema or
-remove a signing key still needed by in-flight requests. The first release has no
-previous verified rollback target; that installed rollback exercise remains open.
+## Package, activate, and roll back
+
+After checks pass and the candidate is committed with a clean working tree, run
+`node scripts/package-release.mjs RELEASE`. This creates an owner-only immutable
+release directory and a manifest of source, binaries, and dependency hashes.
+Release names cannot be reused. Keep the last verified compatible package.
+
+Stop the service, take a journal backup to a new absolute path, then run
+`things activate RELEASE` followed by `things start`. Use authenticated
+`things_status` and `things_capabilities` to verify readiness. Activation does not
+start the service or change trust, scopes, native executables, or journal contents.
+A different native binary requires separate installation qualification.
+
+To roll back, stop the service and activate the retained compatible package, then
+start and verify it. Never restore an old journal as part of code rollback.
+The plist and operator wrapper are staged before replacement; their replacements
+are not crash-atomic as a pair. After an interrupted activation, leave the service
+stopped, inspect both paths, and rerun activation of the intended verified package.
+Both pointers must select compatible runtimes before starting. The previous plist
+is retained as `previous-activation.plist` for inspection, not as a journal backup.
 
 ## Independent validation
 

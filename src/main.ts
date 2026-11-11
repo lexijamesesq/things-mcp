@@ -67,8 +67,15 @@ const retentionTimer = setInterval(() => {
   }
 }, 3600000);
 retentionTimer.unref();
-// Writes stay disabled until release gates are evidenced; no configuration bypass.
-const service = new Service(journal, new Native(config.nativePath as string), timezone, false);
+// Narrow write surface qualified by installed fixture acceptance and independent
+// runtime/auth review. Field-level capabilities still exclude unverified features.
+const writesEnabled = true;
+const service = new Service(
+  journal,
+  new Native(config.nativePath as string),
+  timezone,
+  writesEnabled,
+);
 const server = httpServer(
   service,
   config.trust as Trust,
@@ -77,7 +84,7 @@ const server = httpServer(
   config.originPath as string,
 );
 server.listen(config.port as number, "127.0.0.1", () =>
-  console.log(JSON.stringify({ event: "listening", port: config.port, writes: false })),
+  console.log(JSON.stringify({ event: "listening", port: config.port, writes: writesEnabled })),
 );
 let stopping = false;
 function stop() {

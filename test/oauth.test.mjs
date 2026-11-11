@@ -3,14 +3,14 @@ import { createHash } from "node:crypto";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { convertV4MiniflareOptions, Miniflare } from "miniflare";
 import { build } from "rolldown";
+import { test } from "vitest";
 
 test("isolated workerd OAuth consent, PKCE, scope, client boundaries, refresh and revocation", async (t) => {
   const directory = mkdtempSync(join(tmpdir(), "things-oauth-validation-"));
-  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  t.onTestFinished(() => rmSync(directory, { recursive: true, force: true }));
   const entry = join(directory, "entry.ts");
   const oauthPath = fileURLToPath(new URL("../worker/oauth.ts", import.meta.url));
   writeFileSync(

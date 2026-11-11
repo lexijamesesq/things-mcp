@@ -6,12 +6,17 @@ Things remains the task store. SQLite records durable mutation outcomes and reco
 ## Development
 
 Use Node 26.13.0, `npm ci`, `npm run build:native`, `npm run typecheck`, and `npm test`.
-The native build requires macOS and the Apple command-line developer tools.
+`npm test` runs the existing behavioral suite with Vitest. Manual live-acceptance
+scripts are excluded. The native build requires macOS and the Apple command-line
+developer tools.
 
 ## Status
 
-Implementation is in progress. This is not a production release. Live service writes
-are disabled. See [acceptance evidence](docs/acceptance.md) and the
+The qualified runtime supports Inbox listing, reads by native ID, task creation,
+title and notes edits, notes clearing, completion, and reopening. Dates, tags,
+parent changes, recurrence rules, and broader list scopes remain unsupported.
+Repository CI enrollment and provisioning remain in progress. See
+[acceptance evidence](docs/acceptance.md) and the
 [build specification](docs/build-specification.md).
 
 Task operations remain silent. When Things is closed, the service opens it automatically,

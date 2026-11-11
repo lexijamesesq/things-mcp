@@ -107,7 +107,7 @@ export function httpServer(
               name === "things_list"
                 ? "List open Inbox tasks using a bounded ID snapshot; other scopes are not yet verified."
                 : name === "things_update" || name === "things_set_status"
-                  ? "Requires a fresh revision; recurring occurrence behavior remains unverified."
+                  ? "Requires a fresh revision. Changes only the specified task ID; recurrence rules are not edited."
                   : name,
             inputSchema: fromJsonSchema({ type: "object", additionalProperties: false, ...schema }),
             annotations: {

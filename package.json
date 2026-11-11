@@ -7,7 +7,7 @@
     "node": "26.13.0"
   },
   "scripts": {
-    "test": "node --test --test-timeout=15000 test/*.test.ts test/*.test.mjs",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit && tsc --noEmit -p worker/tsconfig.json",
     "build:native": "mkdir -p build && clang -fobjc-arc -Wall -Wextra -Werror -framework AppKit -framework ApplicationServices native/bridge.m -o build/things-bridge && clang -Wall -Wextra -Werror native/lock-run.c -o \"build/Things MCP\"",
     "build:worker": "cf build"
@@ -29,6 +29,7 @@
     "miniflare": "5.20261110.0-beta",
     "rolldown": "1.2.18",
     "typescript": "5.9.3",
-    "vite": "8.3.8"
+    "vite": "8.3.8",
+    "vitest": "5.1.0"
   }
 }

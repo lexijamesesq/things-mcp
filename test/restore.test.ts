@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { test } from "node:test";
+import { test } from "vitest";
 import { Journal } from "../src/journal.ts";
 import { mergeBackup } from "../src/restore.ts";
 
@@ -11,7 +11,7 @@ test("restore unions tombstones, cannot regress current outcomes, and guards ret
   const dir = mkdtempSync(join(tmpdir(), "things-restore-"));
   const live = new Journal(join(dir, "live.sqlite")),
     backup = new Journal(join(dir, "backup.sqlite"));
-  t.after(() => {
+  t.onTestFinished(() => {
     live.close();
     backup.close();
     rmSync(dir, { recursive: true, force: true });
@@ -48,7 +48,7 @@ test("restore preserves stage evidence and never resurrects expired payloads", (
   const dir = mkdtempSync(join(tmpdir(), "things-restore-evidence-"));
   const live = new Journal(join(dir, "live.sqlite")),
     backup = new Journal(join(dir, "backup.sqlite"));
-  t.after(() => {
+  t.onTestFinished(() => {
     live.close();
     backup.close();
     rmSync(dir, { recursive: true, force: true });
