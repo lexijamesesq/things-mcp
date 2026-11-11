@@ -126,9 +126,9 @@ releases use the verified `activate` command described above.
 
 The runtime source is pushed on `harden-operator-recovery`. Standard merge settings
 are applied and `default-branch` permits only the `main` branch. Dotty enrollment
-is approved in the producer pull request but awaits the owner-controlled merge and
-release. CI secret delivery, a real hosted caller run, observed reporter bindings,
-branch protections, and merger enrollment remain pending. Source verification and
+is merged and present in the published producer policy. The four standard CI
+inputs are delivered through native secret custody. A real hosted caller run,
+observed reporter bindings, branch protections, and merger enrollment remain pending. Source verification and
 installed runtime acceptance do not stand in for those repository checks.
 
 ## Revocation and secure recovery
