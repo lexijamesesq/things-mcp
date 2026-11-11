@@ -64,7 +64,7 @@ export function activateRelease(
   writeFileSync(`${plist}.next`, output.stdout, { mode: 0o600 });
   writeFileSync(
     `${cli}.next`,
-    `#!/bin/sh\nexec ${quote(process.execPath)} ${quote(join(release, "src/operator.ts"))} "$@"\n`,
+    `#!/bin/sh\nexport THINGS_SERVICE_LABEL=${quote(job.Label)}\nexec ${quote(process.execPath)} ${quote(join(release, "src/operator.ts"))} "$@"\n`,
     { mode: 0o700 },
   );
   if (changingRelease) {

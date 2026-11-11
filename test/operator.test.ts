@@ -20,17 +20,17 @@ function fixture(t: TestContext) {
   const root = mkdtempSync(join(tmpdir(), "things-operator-test-"));
   t.onTestFinished(() => rmSync(root, { recursive: true, force: true }));
   const base = join(root, "Library/Application Support/ThingsMCP");
-  mkdirSync(join(base, "state"), { recursive: true });
-  mkdirSync(join(base, "releases/0.1.0/build"), { recursive: true });
-  const launcher = join(base, "releases/0.1.0/build/Things MCP");
+  mkdirSync(join(base, "custom-state"), { recursive: true });
+  mkdirSync(join(base, "releases/test-version/build"), { recursive: true });
+  const launcher = join(base, "releases/test-version/build/Things MCP");
   symlinkSync(resolve("build/Things MCP"), launcher);
-  const journalPath = join(base, "state/journal.sqlite");
-  const lockPath = join(base, "state/executor.lock");
+  const journalPath = join(base, "custom-state/journal.sqlite");
+  const lockPath = join(base, "custom-state/executor.lock");
   writeFileSync(
     join(base, "config.json"),
     JSON.stringify({
       journal: journalPath,
-      nativePath: "/usr/bin/false",
+      nativePath: join(base, "releases/test-version/build/things-bridge"),
       trust: { owner: "fixture" },
     }),
     { mode: 0o600 },

@@ -30,7 +30,7 @@ export default defineConfig({
       ACCESS_AUD: bindings.secret(),
       OWNER_SUBJECT: bindings.secret(),
       SIGNING_JWK: bindings.secret(),
-      SIGNING_KID: bindings.json("2026-11-10-a"),
+      SIGNING_KID: bindings.json(process.env.THINGS_SIGNING_KID ?? "initial"),
       STUDIO_AUDIENCE: bindings.json("things-mcp-studio"),
       CF_ACCESS_CLIENT_ID: bindings.secret(),
       CF_ACCESS_CLIENT_SECRET: bindings.secret(),

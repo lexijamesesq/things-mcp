@@ -16,7 +16,8 @@ if (execFileSync("/usr/bin/git", ["status", "--porcelain"], { cwd: root, encodin
   throw new Error("commit_candidate_before_packaging");
 const destination = join(homedir(), "Library/Application Support/ThingsMCP/releases", name);
 if (existsSync(destination)) throw new Error("release_already_exists");
-const staging = destination + ".staging";
+mkdirSync(dirname(destination), { recursive: true, mode: 0o700 });
+const staging = `${destination}.staging`;
 mkdirSync(staging, { recursive: false, mode: 0o700 });
 for (const path of RUNTIME_PATHS)
   cpSync(join(root, path), join(staging, path), {

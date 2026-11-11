@@ -1,0 +1,64 @@
+# Tool contract
+
+All tools reject unknown arguments. Native IDs come from `things_list`,
+`things_get`, or the `id` query parameter in a Things Copy Link URL. Supply the ID,
+not the whole URL. OAuth scopes are checked at both the gateway and local service.
+
+| Tool | Arguments |
+| --- | --- |
+| `things_status` | `{}` |
+| `things_capabilities` | `{}` |
+| `things_list` | Optional `scope: "inbox"`, `limit` (1–500, default 100), `cursor` |
+| `things_get` | `id` |
+| `things_create` | UUID `operationId`, nonempty `title`, optional string `notes` |
+| `things_update` | UUID `operationId`, `id`, `expectedRevision`, at least one of `title` or `notes` |
+| `things_set_status` | UUID `operationId`, `id`, `expectedRevision`, `status: "open"` or `"completed"` |
+| `things_operation_status` | UUID `operationId` |
+
+Titles allow up to 1,000 JavaScript string units; notes allow up to 100,000.
+The complete HTTP request must fit within 256 KiB. An empty title is invalid.
+For updates, `notes: null` or an empty string clears notes; an omitted field is
+preserved. Creation does not accept null notes. Status is a separate operation.
+
+## Reads and pagination
+
+Task reads expose ID, title, notes, status, and an opaque revision. Read status may
+also be `canceled` or `unknown`; neither is an accepted write target. Capabilities
+describe the supported surface, while status describes current readiness.
+
+Inbox pagination snapshots the ordered IDs, then reads their current contents.
+It is not a point-in-time snapshot of every field. Reuse the same scope and limit
+with the returned cursor. Cursors are bound to client, query, and timezone, expire
+after five minutes, and do not survive service restart. On `restart_required`,
+start a new listing. Tasks missing during hydration produce warnings.
+
+## Mutations and recovery
+
+Generate a UUID for each intended mutation. Persist it with the exact arguments
+before sending. Repeating that request from the same OAuth client returns the
+recorded outcome, except that an unexpired `not_dispatched` operation can be queued
+again with the same UUID and arguments because no mutation was dispatched. Expired
+records and ambiguous outcomes are never requeued. Using a UUID with different
+arguments fails. Another client
+cannot read or reuse the operation even if it belongs to the same owner.
+
+Updates and status changes require the revision returned by a fresh read. A stale
+revision produces a conflict without dispatching the requested mutation. Read
+again, review the intervening change, and use a new UUID for a newly intended edit.
+The revision covers the fields this adapter can read, not unsupported metadata.
+
+If a connection fails, query `things_operation_status` with the original UUID.
+The lookup requires the original operation's scopes; a read-only grant cannot
+retrieve a write operation. It can work while Things is unavailable. Refreshing
+a grant for the same client does not create a new client identity.
+
+Outcomes include `claimed`, `queued`, `dispatching`, `applied`, `conflict`,
+`partial`, `failed`, `uncertain`, and `not_dispatched`. Inspect the returned result
+and stage evidence. `partial` can mean an earlier field change succeeded before a
+later stage failed. `uncertain` means dispatch may have taken effect. Neither is
+permission to repeat the mutation with a new UUID. Reconcile current state by
+known task ID; current state alone cannot prove which request caused it.
+
+Results and stage content expire after seven days. The retained operation record
+still prevents replay, but an expired record cannot reconstruct the original task
+content. Never delete or replace the journal to clear an uncertain operation.

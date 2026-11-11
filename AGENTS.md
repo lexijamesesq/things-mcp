@@ -74,5 +74,6 @@ Normal task access must be silent. If Things is closed, use bounded background-f
 startup; the owner accepts visible UI for startup only. Never prompt for Automation
 permission during runtime. Never retry an ambiguous mutation.
 
-The specification is in `docs/build-specification.md`. The narrow title/notes/status write surface is qualified; retain the evidence limits
-and unsupported fields described in `docs/acceptance.md`.
+Public installation and configuration are in `docs/deployment.md`; release duties
+are in `docs/releases.md`. Preserve the supported surface and evidence limits in
+`docs/acceptance.md`.
