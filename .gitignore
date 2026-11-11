@@ -1,0 +1,9 @@
+node_modules/
+build/
+.wrangler/
+*.sqlite*
+.env*
+*.pem
+*.key
+config.local.json
+.cloudflare/

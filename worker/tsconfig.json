@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": [
+      "@cloudflare/workers-types"
+    ],
+    "skipLibCheck": true
+  },
+  "include": [
+    "*.ts",
+    "../cloudflare.config.ts"
+  ]
+}
