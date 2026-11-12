@@ -15,6 +15,8 @@ class FakeNative extends Native {
     notes: "Secret notes",
     status: "open",
     recurrence: "unknown",
+    start: null,
+    deadline: "2030-03-04",
   };
   writes = 0;
   timeout = false;
@@ -31,6 +33,11 @@ class FakeNative extends Native {
       this.item = { ...this.item, title: r.title, notes: r.notes ?? "" };
     if (r.operation === "set_title") this.item.title = r.value;
     if (r.operation === "set_notes") this.item.notes = r.value;
+    if (r.operation === "set_start") {
+      assert.equal(r.id, this.item.id);
+      assert.equal(r.timezone, "America/Phoenix");
+      this.item.start = r.value;
+    }
     if (r.operation === "set_status") this.item.status = r.value;
     return { ok: true, dispatched: true, result: { id: "native-id" } };
   }
@@ -219,4 +226,112 @@ test("two-field update preserves its first stage and never replays after second-
     assert.equal(status.stages[0].outcome, "applied");
     assert.equal(status.stages[0].result.title, args.title);
   }
+});
+
+test("scheduling create and update preserves deadlines and uses fresh date revisions", async (t) => {
+  const { service, native } = fixture(t);
+  const create = { operationId: randomUUID(), title: "Scheduled", start: "2032-02-29" };
+  const result = await service.call("things_create", create, {
+    ...owner,
+    scopes: ["things.create"],
+  });
+  assert.equal((result as { outcome: string }).outcome, "applied");
+  assert.match(JSON.stringify(result), /2032-02-29/);
+  assert.doesNotMatch(JSON.stringify(result), /2030-03-04/);
+  assert.equal(native.item.start, create.start);
+  assert.equal(native.item.deadline, "2030-03-04");
+  const before = await service.read("native-id");
+  const update = {
+    operationId: randomUUID(),
+    id: "native-id",
+    expectedRevision: before.revision,
+    start: "2032-03-01",
+  };
+  assert.equal(
+    ((await service.call("things_update", update, owner)) as { outcome: string }).outcome,
+    "applied",
+  );
+  assert.equal(native.item.start, update.start);
+  assert.equal(native.item.deadline, "2030-03-04");
+  assert.equal(native.item.title, "Scheduled");
+  assert.equal(
+    (
+      (await service.call(
+        "things_update",
+        { ...update, operationId: randomUUID(), start: "2032-03-02" },
+        owner,
+      )) as { outcome: string }
+    ).outcome,
+    "conflict",
+  );
+});
+
+test("invalid scheduled dates and deadline writes are rejected before any mutation", async (t) => {
+  const { service, native } = fixture(t);
+  for (const start of [
+    "2031-02-29",
+    "2030-13-01",
+    "today",
+    "2030-01-01T00:00:00Z",
+    "1903-12-31",
+    null,
+  ]) {
+    await assert.rejects(
+      service.call("things_create", { operationId: randomUUID(), title: "Invalid", start }, owner),
+      /invalid_start_date/,
+    );
+  }
+  await assert.rejects(
+    service.call(
+      "things_update",
+      {
+        operationId: randomUUID(),
+        id: "native-id",
+        expectedRevision: "v1:unused",
+        deadline: "2030-01-01",
+      },
+      owner,
+    ),
+    /invalid_argument/,
+  );
+  assert.equal(native.writes, 0);
+});
+
+test("scheduled creation retains the created ID on partial failure without claiming or replaying scheduling", async (t) => {
+  const { service, native } = fixture(t);
+  const original = native.call.bind(native);
+  native.call = async (request) =>
+    request.operation === "set_start"
+      ? { ok: false, dispatched: false, error: "unavailable" }
+      : original(request);
+  const args = { operationId: randomUUID(), title: "Created before schedule", start: "2032-01-01" };
+  const result = await service.call("things_create", args, owner);
+  assert.equal((result as { outcome: string }).outcome, "partial");
+  assert.match(JSON.stringify(result), /native-id/);
+  assert.doesNotMatch(JSON.stringify(result), /2032-01-01/);
+  assert.deepEqual(await service.call("things_create", args, owner), result);
+  assert.equal(native.writes, 1);
+});
+
+test("scheduling that alters a deadline is uncertain and never replayed", async (t) => {
+  const { service, native } = fixture(t);
+  const original = native.call.bind(native);
+  native.call = async (request) => {
+    const result = await original(request);
+    if (request.operation === "set_start") native.item.deadline = null;
+    return result;
+  };
+  const before = await service.read("native-id");
+  const args = {
+    operationId: randomUUID(),
+    id: "native-id",
+    expectedRevision: before.revision,
+    start: "2032-01-01",
+  };
+  assert.equal(
+    ((await service.call("things_update", args, owner)) as { outcome: string }).outcome,
+    "uncertain",
+  );
+  await service.call("things_update", args, owner);
+  assert.equal(native.writes, 1);
 });

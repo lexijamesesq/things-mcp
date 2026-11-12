@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0
+
+- Optional scheduled start dates on task creation and updates, using explicit
+  calendar dates in the service timezone; deadlines remain read-only.
+- Start and deadline readback participates in revisions and preservation checks.
+- Scheduled creation records creation and scheduling separately for safe recovery.
+
+Requires explicit qualification of the changed native helper before deployment.
+Live scheduling and Today-view acceptance remain pending; refresh task revisions
+and client tool metadata after upgrading. See [evidence limits](docs/acceptance.md).
+
 ## 0.1.0
 
 Initial source release.

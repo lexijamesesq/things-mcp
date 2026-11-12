@@ -102,7 +102,11 @@ if (command === "doctor") {
       if (!row || row.expired || !row.result) throw new Error("no_retained_known_id");
       const result = JSON.parse(row.result);
       if (typeof result.id !== "string") throw new Error("no_known_native_id");
-      const reply = await new Native(config.nativePath).call({ operation: "get", id: result.id });
+      const reply = await new Native(config.nativePath).call({
+        operation: "get",
+        id: result.id,
+        timezone: config.timezone,
+      });
       // This is current state only, never attribution or permission to redispatch.
       console.log(
         JSON.stringify(

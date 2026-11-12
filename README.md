@@ -2,7 +2,7 @@
 
 Things MCP connects an OAuth-capable MCP client to your Things 3 tasks on a Mac.
 It supports reading tasks, listing the Inbox, creating tasks, editing titles and
-notes, and completing or reopening tasks. You host a Cloudflare gateway and a
+notes and scheduled dates, and completing or reopening tasks. You host a Cloudflare gateway and a
 local macOS service; each deployment serves one Things owner.
 
 ## Installation
@@ -67,8 +67,8 @@ the server.
 | `things_capabilities` | Discover supported fields and operations | `things.read` |
 | `things_list` | Page through open Inbox tasks | `things.read` |
 | `things_get` | Read a task by its native ID | `things.read` |
-| `things_create` | Create an Inbox task | `things.create` |
-| `things_update` | Change title or notes | `things.read`, `things.update` |
+| `things_create` | Create a task, optionally scheduled | `things.create` |
+| `things_update` | Change title, notes, or scheduled date | `things.read`, `things.update` |
 | `things_set_status` | Complete or reopen a task | `things.read`, `things.complete` |
 | `things_operation_status` | Recover a recorded mutation outcome | Original operation's scopes and client |
 
@@ -88,7 +88,7 @@ This `things_update` call clears notes. Omitted fields stay unchanged. Do not re
 the example UUID for separate operations. See the [tool contract](docs/tools.md)
 for arguments, pagination, conflicts, and uncertain outcomes.
 
-Dates, tags, moves, projects, areas, checklists, reminders, recurrence rules, and
+Date clearing, deadline edits, tags, moves, projects, areas, checklists, reminders, recurrence rules, and
 lists other than Inbox are unsupported. Read-by-ID can reach tasks outside Inbox.
 The service cannot identify a repeating template's relationship to its instances.
 See [compatibility and evidence limits](docs/acceptance.md).

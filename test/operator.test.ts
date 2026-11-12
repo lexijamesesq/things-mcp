@@ -30,6 +30,7 @@ function fixture(t: TestContext) {
     join(base, "config.json"),
     JSON.stringify({
       journal: journalPath,
+      timezone: "America/Phoenix",
       nativePath: join(base, "releases/test-version/build/things-bridge"),
       trust: { owner: "fixture" },
     }),
@@ -128,4 +129,43 @@ test("restore refuses a valid backup when the current journal is missing", (t) =
     false,
     "restore cannot infer missing post-backup tombstones",
   );
+});
+
+test("reconciliation reads the retained task using the configured timezone without redispatch", (t) => {
+  const f = fixture(t);
+  const journal = new Journal(f.journalPath);
+  const principal = {
+    owner: "fixture",
+    client: "client",
+    grant: "grant",
+    scopes: ["things.create"],
+  };
+  const operationId = "019a7234-4580-7000-8000-000000000001";
+  journal.claim(principal, operationId, { tool: "things_create" }, ["things.create"]);
+  journal.finish(principal.owner, operationId, "uncertain", { id: "retained-task" });
+  journal.close();
+  const helper = join(
+    f.root,
+    "Library/Application Support/ThingsMCP/releases/test-version/build/things-bridge",
+  );
+  writeFileSync(
+    helper,
+    `#!${process.execPath}
+let input="";process.stdin.on("data",part=>input+=part);process.stdin.on("end",()=>{
+const r=JSON.parse(input);
+console.log(JSON.stringify(r.operation==="get"&&r.id==="retained-task"&&r.timezone==="America/Phoenix"
+?{ok:true,dispatched:true,result:{id:r.id,start:"2032-02-29",deadline:null}}
+:{ok:false,dispatched:false,error:"invalid_argument"}));});`,
+    { mode: 0o700 },
+  );
+  const result = spawnSync(process.execPath, [f.operator, "reconcile", operationId], {
+    env: f.env,
+    encoding: "utf8",
+  });
+  assert.equal(result.status, 0, result.stderr);
+  const observed = JSON.parse(result.stdout);
+  assert.equal(observed.reconciled, true);
+  assert.equal(observed.outcome, "uncertain");
+  assert.equal(observed.provesOriginalEffect, false);
+  assert.equal(observed.current.result.start, "2032-02-29");
 });

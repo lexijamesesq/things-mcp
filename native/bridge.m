@@ -26,16 +26,34 @@ static NSAppleEventDescriptor *spec(DescType cls, DescType form, NSAppleEventDes
 }
 static NSAppleEventDescriptor *all(void) {DescType code=kAEAll;return [NSAppleEventDescriptor descriptorWithDescriptorType:typeAbsoluteOrdinal bytes:&code length:sizeof(code)];}
 static NSAppleEventDescriptor *property(DescType code, NSAppleEventDescriptor *container) { return spec(typeProperty,formPropertyID,[NSAppleEventDescriptor descriptorWithTypeCode:code],container); }
-static NSAppleEventDescriptor *sendEvent(AEEventID eid, NSDictionary<NSNumber *,NSAppleEventDescriptor *> *parameters) {
+static NSAppleEventDescriptor *sendTypedEvent(AEEventClass cls, AEEventID eid, NSDictionary<NSNumber *,NSAppleEventDescriptor *> *parameters) {
  requireOwnerSession();
  struct proc_bsdinfo now={0}; pid_t pid=application.processIdentifier;
  if(application.terminated||proc_pidinfo(pid,PROC_PIDTBSDINFO,0,&now,sizeof(now))!=sizeof(now)||identity.pbi_start_tvsec!=now.pbi_start_tvsec||identity.pbi_start_tvusec!=now.pbi_start_tvusec) fail(@"unavailable");
- NSAppleEventDescriptor *event=[NSAppleEventDescriptor appleEventWithEventClass:kAECoreSuite eventID:eid targetDescriptor:target returnID:kAutoGenerateReturnID transactionID:kAnyTransactionID];
+ NSAppleEventDescriptor *event=[NSAppleEventDescriptor appleEventWithEventClass:cls eventID:eid targetDescriptor:target returnID:kAutoGenerateReturnID transactionID:kAnyTransactionID];
  for(NSNumber *key in parameters) [event setParamDescriptor:parameters[key] forKeyword:key.unsignedIntValue];
  NSError *error=nil; dispatched=YES;
  NSAppleEventDescriptor *reply=[event sendEventWithOptions:(kAEWaitReply|kAENeverInteract|kAEDontReconnect|kAEDoNotPromptForUserConsent) timeout:5 error:&error];
  if(!reply||[reply paramDescriptorForKeyword:keyErrorNumber].int32Value){nativeError=error?(OSStatus)error.code:[reply paramDescriptorForKeyword:keyErrorNumber].int32Value;fail(@"native_error");}
  return [reply paramDescriptorForKeyword:keyDirectObject];
+}
+static NSAppleEventDescriptor *sendEvent(AEEventID eid, NSDictionary<NSNumber *,NSAppleEventDescriptor *> *parameters) {
+ return sendTypedEvent(kAECoreSuite,eid,parameters);
+}
+static NSString *str(NSDictionary *request, NSString *key, NSUInteger max);
+static NSDateFormatter *dateFormatter(NSDictionary *r) {
+ NSString *zone=str(r,@"timezone",128);
+ NSTimeZone *tz=[NSTimeZone timeZoneWithName:zone];if(!tz)fail(@"invalid_argument");
+ NSDateFormatter *f=[NSDateFormatter new];f.locale=[[NSLocale alloc]initWithLocaleIdentifier:@"en_US_POSIX"];
+ f.calendar=[[NSCalendar alloc]initWithCalendarIdentifier:NSCalendarIdentifierGregorian];f.timeZone=tz;f.dateFormat=@"yyyy-MM-dd";f.lenient=NO;return f;
+}
+static NSDate *parseDate(id value, NSDateFormatter *f) {
+ if(![value isKindOfClass:NSString.class]||[value length]!=10||[value compare:@"1904-01-01"]==NSOrderedAscending)fail(@"invalid_argument");
+ NSDate *date=[f dateFromString:value];if(!date||![[f stringFromDate:date] isEqual:value])fail(@"invalid_argument");return date;
+}
+static id readDate(NSAppleEventDescriptor *value, NSDateFormatter *f) {
+ if(value.descriptorType==typeNull || (value.descriptorType==typeType && value.typeCodeValue=='msng'))return NSNull.null;
+ NSDate *date=value.dateValue;if(!date)fail(@"invalid_native_output");return [f stringFromDate:date];
 }
 static NSAppleEventDescriptor *get(NSAppleEventDescriptor *obj) {return sendEvent(kAEGetData,@{@(keyDirectObject):obj});}
 static NSString *str(NSDictionary *request, NSString *key, NSUInteger max) {
@@ -53,11 +71,12 @@ int main(int argc, const char **argv) { @autoreleasepool { @try {
  if(![r isKindOfClass:NSDictionary.class])fail(@"invalid_argument");
  NSString *op=str(r,@"operation",32);
  if(authorizeSetup && ![op isEqual:@"status"])fail(@"invalid_argument");
- NSArray *allowed=@[@"ensure_running",@"list_catalog",@"list_ids",@"status",@"version",@"get",@"create",@"set_title",@"set_notes",@"set_status"];
+ NSArray *allowed=@[@"ensure_running",@"list_catalog",@"list_ids",@"status",@"version",@"get",@"create",@"set_title",@"set_notes",@"set_status",@"set_start"];
  if(![allowed containsObject:op])fail(@"unsupported_operation");
  if([op isEqual:@"create"]){exact(r,@[@"operation",@"title",@"notes"]);str(r,@"title",1000);if(r[@"notes"]&&(![r[@"notes"] isKindOfClass:NSString.class]||[r[@"notes"] length]>100000))fail(@"invalid_argument");}
  else if([op isEqual:@"list_ids"]){exact(r,@[@"operation",@"scope"]);if(![r[@"scope"] isEqual:@"inbox"])fail(@"unsupported_scope");}
- else if([op isEqual:@"get"]){exact(r,@[@"operation",@"id"]);str(r,@"id",256);}
+ else if([op isEqual:@"get"]){exact(r,@[@"operation",@"id",@"timezone"]);str(r,@"id",256);dateFormatter(r);}
+ else if([op isEqual:@"set_start"]){exact(r,@[@"operation",@"id",@"value",@"timezone"]);str(r,@"id",256);parseDate(r[@"value"],dateFormatter(r));}
  else if([op hasPrefix:@"set_"]){exact(r,@[@"operation",@"id",@"value"]);str(r,@"id",256);if([op isEqual:@"set_notes"]){if(![r[@"value"] isKindOfClass:NSString.class]||[r[@"value"] length]>100000)fail(@"invalid_argument");}else str(r,@"value",1000);if([op isEqual:@"set_status"]&&![@[@"open",@"completed"] containsObject:r[@"value"]])fail(@"invalid_argument");}
  else exact(r,@[@"operation"]);
  requireOwnerSession();
@@ -111,7 +130,7 @@ int main(int argc, const char **argv) { @autoreleasepool { @try {
  if([op isEqual:@"get"]){
   NSString *ident=get(property('ID  ',item)).stringValue;NSString *title=get(property('pnam',item)).stringValue;NSString *notes=get(property('note',item)).stringValue;DescType status=get(property('tdst',item)).enumCodeValue;
   if(!ident||!title||!notes)fail(@"invalid_native_output");
-  result=@{@"id":ident,@"title":title,@"notes":notes,@"status":status=='tdio'?@"open":status=='tdcm'?@"completed":status=='tdcl'?@"canceled":@"unknown",@"recurrence":@"unknown"};
+  result=@{@"id":ident,@"title":title,@"notes":notes,@"status":status=='tdio'?@"open":status=='tdcm'?@"completed":status=='tdcl'?@"canceled":@"unknown",@"recurrence":@"unknown",@"start":readDate(get(property('actd',item)),dateFormatter(r)),@"deadline":readDate(get(property('dued',item)),dateFormatter(r))};
  }
  if([op isEqual:@"create"]){
   NSAppleEventDescriptor *props=[NSAppleEventDescriptor recordDescriptor];[props setDescriptor:[NSAppleEventDescriptor descriptorWithString:r[@"title"]] forKeyword:'pnam'];
@@ -119,7 +138,11 @@ int main(int argc, const char **argv) { @autoreleasepool { @try {
   NSAppleEventDescriptor *created=sendEvent(kAECreateElement,@{@(keyAEObjectClass):[NSAppleEventDescriptor descriptorWithTypeCode:'tstk'],@(keyAEPropData):props});
   NSString *ident=get(property('ID  ',created)).stringValue;if(!ident)fail(@"invalid_native_output");result=@{@"id":ident};
  }
- if([op hasPrefix:@"set_"]){
+ if([op isEqual:@"set_start"]){
+  NSDate *date=parseDate(r[@"value"],dateFormatter(r));
+  sendTypedEvent('THGS','schd',@{@(keyDirectObject):item,@((AEKeyword)'sdat'):[NSAppleEventDescriptor descriptorWithDate:date]});result=@{@"id":r[@"id"]};
+ }
+ if([op hasPrefix:@"set_"]&&![op isEqual:@"set_start"]){
   DescType code=[op isEqual:@"set_title"]?'pnam':[op isEqual:@"set_notes"]?'note':'tdst';
   NSAppleEventDescriptor *value=code=='tdst'?[NSAppleEventDescriptor descriptorWithEnumCode:[r[@"value"] isEqual:@"open"]?'tdio':'tdcm']:[NSAppleEventDescriptor descriptorWithString:r[@"value"]];
   sendEvent(kAESetData,@{@(keyDirectObject):property(code,item),@(keyAEData):value});result=@{@"id":r[@"id"]};

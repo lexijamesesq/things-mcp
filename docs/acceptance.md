@@ -15,12 +15,23 @@ background. macOS may show UI during startup; silence is required for task event
 
 A disposable repeating instance was edited, completed, and reopened while another
 related item retained its readable fields. This does not establish preservation
-of recurrence rules, dates, or additional generated occurrences: the adapter does
-not expose them. Target an exact native ID and do not infer template relationships.
+of recurrence rules or additional generated occurrences. Those fixture checks
+predate date support. Target an exact native ID and do not infer template relationships.
 
-Unsupported features include dates, tags, parent changes, moves, ordering, project
+Unsupported features include start-date clearing, deadline edits, tags, parent changes, moves, ordering, project
 or area creation, checklists, reminders, recurrence-rule editing, and list scopes
 other than open Inbox. Capability responses explicitly report these limits.
+
+Scheduled dates are implemented through the native schedule command, with start
+and deadline readback. Isolated checks cover date validation, event encoding,
+revision conflicts, field preservation, and partial creation recovery. Live
+scheduled-create/update checks, Today-list membership, and hidden-window silence
+for scheduling have not yet been performed. These are required before claiming
+installed or hosted scheduling works. Do not test against an owner's actual tasks.
+
+This release changes the native executable. Ordinary activation rejects that
+identity change; qualify the native upgrade explicitly before installation.
+Existing task revisions and pagination contexts must be refreshed after upgrade.
 
 ## Verification boundaries
 

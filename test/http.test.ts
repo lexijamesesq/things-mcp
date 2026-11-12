@@ -70,6 +70,15 @@ test("real HTTP MCP denies unsigned requests and serves scoped stateless tool ca
   const good = await invoke(["things.read"], call);
   assert.equal(good.status, 200);
   assert.match(await good.text(), /release_gates_pending/);
+  const dateCall = {
+    ...call,
+    params: {
+      name: "things_create",
+      arguments: { operationId: randomUUID(), title: "Scheduled", start: "2032-02-29" },
+    },
+  };
+  assert.match(await (await invoke(["things.create"], dateCall)).text(), /release_gates_pending/);
+  assert.match(await (await invoke(["things.read"], dateCall)).text(), /denied/);
   const denied = await invoke([], call);
   assert.match(await denied.text(), /denied/);
   assert.equal((await invoke(["things.read"], [call])).status, 400);
@@ -106,6 +115,8 @@ test("client disconnect after dispatch does not cancel work or duplicate the mut
           notes: "",
           status: "open",
           recurrence: "unknown",
+          start: null,
+          deadline: null,
         },
       };
     }

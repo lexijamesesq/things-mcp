@@ -12,6 +12,7 @@ static int sessionChecks, processChecks, permissionChecks, appLookups, eventCall
 static BOOL askedForPermission, eventTargetsSelf;
 static NSAppleEventSendOptions observedOptions;
 static NSTimeInterval observedTimeout;
+static NSMutableArray *events;
 
 static CFDictionaryRef fixtureSession(void) {
  sessionChecks++;
@@ -54,6 +55,33 @@ static OSStatus fixturePermission(const AEAddressDesc *address, AEEventClass cls
  pid_t pid=0;NSData *data=address.data;
  if(address.descriptorType==typeKernelProcessID && data.length==sizeof(pid))memcpy(&pid,data.bytes,sizeof(pid));
  eventTargetsSelf=pid==getpid();
+ NSAppleEventDescriptor *event=(NSAppleEventDescriptor *)self;
+ NSAppleEventDescriptor *direct=[event paramDescriptorForKeyword:keyDirectObject];
+ NSAppleEventDescriptor *scheduled=[event paramDescriptorForKeyword:'sdat'];
+ [events addObject:@{@"class":@(event.eventClass),@"id":@(event.eventID),
+  @"dateType":@(scheduled.descriptorType),@"dateSeconds":@(scheduled.dateValue.timeIntervalSince1970),
+  @"taskId":[direct descriptorForKeyword:keyAEKeyData].stringValue?:@"",
+  @"property":@([direct descriptorForKeyword:keyAEKeyData].descriptorType==typeType?[direct descriptorForKeyword:keyAEKeyData].typeCodeValue:0)}];
+ if([scenario hasPrefix:@"schedule_success"] || [scenario hasPrefix:@"read_"]) {
+  NSAppleEventDescriptor *value=[NSAppleEventDescriptor nullDescriptor];
+  if([scenario hasPrefix:@"read_"]) {
+   DescType propertyCode=[direct descriptorForKeyword:keyAEKeyData].typeCodeValue;
+   switch(propertyCode) {
+    case 'ID  ':value=[NSAppleEventDescriptor descriptorWithString:@"synthetic-fixture"];break;
+    case 'pnam':value=[NSAppleEventDescriptor descriptorWithString:@"synthetic-title"];break;
+    case 'note':value=[NSAppleEventDescriptor descriptorWithString:@"synthetic-notes"];break;
+    case 'tdst':value=[NSAppleEventDescriptor descriptorWithEnumCode:'tdio'];break;
+    case 'actd':case 'dued':
+     if([scenario isEqual:@"read_missing"])value=propertyCode=='actd'?[NSAppleEventDescriptor descriptorWithTypeCode:'msng']:[NSAppleEventDescriptor nullDescriptor];
+     else if([scenario isEqual:@"read_invalid"])value=[NSAppleEventDescriptor descriptorWithString:@"not a date"];
+     else value=[NSAppleEventDescriptor descriptorWithDate:[NSDate dateWithTimeIntervalSince1970:propertyCode=='actd'?1794448800:1794535200]];
+     break;
+    default:@throw [NSException exceptionWithName:@"unexpected_property" reason:nil userInfo:nil];
+   }
+  }
+  NSAppleEventDescriptor *reply=[NSAppleEventDescriptor recordDescriptor];
+  [reply setParamDescriptor:value forKeyword:keyDirectObject];return reply;
+ }
  if(error)*error=[NSError errorWithDomain:NSOSStatusErrorDomain code:errAETimeout userInfo:nil];
  return nil; // Simulate an ambiguous native failure; never invoke the original method.
 }
@@ -79,7 +107,7 @@ static void replaceMethod(Method original, Method replacement) {
 }
 int main(int argc,const char **argv) { @autoreleasepool {
  if(argc!=2)return 64;
- scenario=[NSString stringWithUTF8String:argv[1]];
+ scenario=[NSString stringWithUTF8String:argv[1]];events=[NSMutableArray array];
  Class currentAppClass=object_getClass(NSRunningApplication.currentApplication);
  replaceMethod(class_getInstanceMethod(currentAppClass,@selector(processIdentifier)),class_getInstanceMethod(BoundaryHooks.class,@selector(fixturePid)));
  replaceMethod(class_getInstanceMethod(currentAppClass,@selector(isTerminated)),class_getInstanceMethod(BoundaryHooks.class,@selector(fixtureTerminated)));
@@ -88,7 +116,7 @@ int main(int argc,const char **argv) { @autoreleasepool {
  replaceMethod(class_getInstanceMethod(NSWorkspace.class,@selector(openApplicationAtURL:configuration:completionHandler:)),class_getInstanceMethod(BoundaryHooks.class,@selector(fixtureOpen:configuration:completionHandler:)));
  int result=bridge_under_test_main(1,argv);
  NSData *json=[NSJSONSerialization dataWithJSONObject:@{
-  @"sessionChecks":@(sessionChecks),@"processChecks":@(processChecks),@"permissionChecks":@(permissionChecks),
+  @"events":events,@"sessionChecks":@(sessionChecks),@"processChecks":@(processChecks),@"permissionChecks":@(permissionChecks),
   @"appLookups":@(appLookups),@"eventCalls":@(eventCalls),@"openCalls":@(openCalls),
   @"askedForPermission":@(askedForPermission),@"eventTargetsSelf":@(eventTargetsSelf),
   @"neverInteract":@((BOOL)((observedOptions&kAENeverInteract)==kAENeverInteract)),
