@@ -26,8 +26,9 @@ Scheduled dates are implemented through the native schedule command, with start
 and deadline readback. Isolated checks cover date validation, event encoding,
 revision conflicts, field preservation, and partial creation recovery. A disposable fixture passed scheduled creation for a future date, rescheduling to
 the current date, readback, deadline preservation, and completion through the
-loopback MCP transport under the existing launcher identity. Today-list membership,
-hidden-window silence for scheduling, and hosted scheduling remain unverified.
+loopback MCP transport under the existing launcher identity. A separate noninteractive native read confirmed the fixture in Today after
+rescheduling; the fixture was then completed. Hidden-window silence for scheduling
+and hosted scheduling remain unverified.
 These are required before claiming complete installed or hosted scheduling
 acceptance. Do not test against an owner's actual tasks.
 
