@@ -45,8 +45,8 @@ its observed result, without claiming that scheduling succeeded. Inspect partial
 or uncertain outcomes before taking any further action; never create a replacement
 as an automatic retry. No new authorization scopes are required.
 
-Today-list placement and silent scheduling still require live fixture qualification;
-see [evidence limits](acceptance.md).
+Today-list placement and silent scheduling passed local disposable-fixture checks.
+Hosted scheduling remains unverified; see [evidence limits](acceptance.md).
 
 ## Reads and pagination
 
