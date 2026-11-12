@@ -1,5 +1,6 @@
 import {
   authorize,
+  calendarDate,
   exact,
   Fault,
   type Principal,
@@ -31,7 +32,7 @@ export class Service {
   capabilities() {
     return {
       schemaVersion: 1,
-      version: "native-basic-1",
+      version: "native-dates-1",
       timezone: this.timezone,
       operations: {
         get: true,
@@ -46,13 +47,13 @@ export class Service {
         status: { read: true, set: this.writesEnabled, clear: false },
         parentId: { read: false, set: false, clear: false },
         tagIds: { read: false, set: false, clear: false },
-        start: { read: false, set: false, clear: false },
-        deadline: { read: false, set: false, clear: false },
+        start: { read: true, set: this.writesEnabled, clear: false },
+        deadline: { read: true, set: false, clear: false },
       },
       nativeScopes: ["inbox"],
       recurrence: "unknown",
       unsupportedReason:
-        "Dates, parent/tag editing, recurrence-rule editing, and broader list scopes are not supported in this release",
+        "Date clearing, deadline editing, parent/tag editing, recurrence-rule editing, and broader list scopes are not supported in this release",
       shortcuts: false,
       startup: {
         automatic: true,
@@ -63,11 +64,11 @@ export class Service {
     };
   }
   async ensureRunning() {
-    const ready = await this.native.call({ operation: "ensure_running" });
+    const ready = await this.native.call({ operation: "ensure_running", timezone: this.timezone });
     if (!ready.ok) throw new Fault(ready.error ?? "unavailable");
   }
   async read(id: string): Promise<Record<string, unknown>> {
-    const r = await this.native.call({ operation: "get", id });
+    const r = await this.native.call({ operation: "get", id, timezone: this.timezone });
     if (!r.ok) throw new Fault(r.nativeCode === -1728 ? "not_found" : (r.error ?? "unavailable"));
     const item = r.result;
     if (!item) throw new Fault("invalid_native_output");
@@ -78,8 +79,17 @@ export class Service {
       !["open", "completed", "canceled", "unknown"].includes(item.status as string)
     )
       throw new Fault("invalid_native_output");
+    for (const field of ["start", "deadline"]) {
+      if (item[field] !== null) {
+        try {
+          calendarDate(item[field]);
+        } catch {
+          throw new Fault("invalid_native_output");
+        }
+      }
+    }
     this.latestRead = new Date().toISOString();
-    return { ...item, revision: revision(item, this.timezone, "native-basic-1") };
+    return { ...item, revision: revision(item, this.timezone, "native-dates-1") };
   }
   async call(tool: string, args: unknown, p: Principal): Promise<unknown> {
     try {
@@ -113,7 +123,7 @@ export class Service {
       exact(args, []);
       return this.queue.run(async () => {
         const native = await this.native
-          .call({ operation: "status" })
+          .call({ operation: "status", timezone: this.timezone })
           .catch(
             () => ({ ok: false, dispatched: false, error: "native_unavailable" }) as NativeReply,
           );
@@ -156,7 +166,7 @@ export class Service {
             startupPolicy: "background_first_on_task_access",
           },
           journal: journalAccessible ? "accessible" : "unavailable",
-          adapter: { version: "native-basic-1", lastPreflightSucceeded: native.ok },
+          adapter: { version: "native-dates-1", lastPreflightSucceeded: native.ok },
           gateway: "not_observed",
           tunnel: "not_observed",
           lastError: this.lastError,
@@ -174,7 +184,7 @@ export class Service {
         throw new Fault("invalid_argument");
       if (args.cursor !== undefined) text(args.cursor, 128);
       const query = { scope, limit, status: "open" },
-        context = this.timezone + ":native-basic-1";
+        context = this.timezone + ":native-dates-1";
       // Reject foreign/expired handles before native access or automatic startup.
       const existing = args.cursor
         ? this.snapshots.resume(p, query, args.cursor as string, context)
@@ -225,9 +235,9 @@ export class Service {
     }
     const keys =
       tool === "things_create"
-        ? ["operationId", "title", "notes"]
+        ? ["operationId", "title", "notes", "start"]
         : tool === "things_update"
-          ? ["operationId", "id", "expectedRevision", "title", "notes"]
+          ? ["operationId", "id", "expectedRevision", "title", "notes", "start"]
           : ["operationId", "id", "expectedRevision", "status"];
     exact(args, keys);
     uuid(args.operationId);
@@ -240,7 +250,13 @@ export class Service {
     if (args.title !== undefined) text(args.title);
     if (args.notes !== undefined && args.notes !== null) text(args.notes, 100000, true);
     if (tool === "things_create" && args.notes === null) throw new Fault("invalid_argument");
-    if (tool === "things_update" && args.title === undefined && args.notes === undefined)
+    if (args.start !== undefined) calendarDate(args.start);
+    if (
+      tool === "things_update" &&
+      args.title === undefined &&
+      args.notes === undefined &&
+      args.start === undefined
+    )
       throw new Fault("empty_patch");
     if (tool === "things_set_status" && !["completed", "open"].includes(args.status as string))
       throw new Fault("invalid_argument");
@@ -251,7 +267,7 @@ export class Service {
     return this.queue.run(
       async () => {
         const ready = await this.native
-          .call({ operation: "ensure_running" })
+          .call({ operation: "ensure_running", timezone: this.timezone })
           .catch(() => ({ ok: false, error: "unavailable" }));
         if (!ready.ok) {
           this.journal.finish(p.owner, operationId, "not_dispatched", {
@@ -282,9 +298,12 @@ export class Service {
             if (args.notes !== undefined)
               stages.push({ operation: "set_notes", id, value: args.notes ?? "" });
           }
+          if (args.start !== undefined)
+            stages.push({ operation: "set_start", value: args.start, timezone: this.timezone });
           if (tool === "things_set_status")
             stages.push({ operation: "set_status", id, value: args.status });
           for (let i = 0; i < stages.length; i++) {
+            if (stages[i].operation === "set_start") stages[i].id = id;
             this.journal.dispatch(p.owner, operationId, i);
             let reply: NativeReply;
             try {
@@ -311,15 +330,17 @@ export class Service {
                 ? { title: stages[i].value }
                 : stages[i].operation === "set_notes"
                   ? { notes: stages[i].value }
-                  : stages[i].operation === "set_status"
-                    ? { status: stages[i].value }
-                    : {
-                        title: args.title,
-                        ...(args.notes === undefined ? {} : { notes: args.notes }),
-                      };
+                  : stages[i].operation === "set_start"
+                    ? { start: stages[i].value }
+                    : stages[i].operation === "set_status"
+                      ? { status: stages[i].value }
+                      : {
+                          title: args.title,
+                          ...(args.notes === undefined ? {} : { notes: args.notes }),
+                        };
             const preserved = current
               ? Object.fromEntries(
-                  ["title", "notes", "status"]
+                  ["title", "notes", "status", "start", "deadline"]
                     .filter((k) => !(k in expected))
                     .map((k) => [k, current?.[k]]),
                 )
@@ -341,8 +362,12 @@ export class Service {
                     revision: state.revision,
                     ...Object.fromEntries(
                       Object.keys(args)
-                        .filter((k) => ["title", "notes"].includes(k))
-                        .map((k) => [k, args[k]]),
+                        .filter(
+                          (k) =>
+                            ["title", "notes", "start"].includes(k) &&
+                            (k !== "start" || state.start === args.start),
+                        )
+                        .map((k) => [k, state[k]]),
                     ),
                   };
             this.journal.observed(p.owner, operationId, i, result, i < stages.length - 1);

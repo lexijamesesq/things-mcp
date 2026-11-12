@@ -6,6 +6,12 @@ import { Fault } from "./contract.ts";
 import type { Service } from "./service.ts";
 
 const string: JsonSchemaType = { type: "string" };
+const start: JsonSchemaType = {
+  type: "string",
+  pattern: "^[0-9]{4}-[0-9]{2}-[0-9]{2}$",
+  description:
+    "Scheduled start date, YYYY-MM-DD (1904–9999), in the timezone from things_capabilities. To put a task in Today, supply today's date in that timezone. Not a deadline. Omit to leave unchanged; clearing is unsupported.",
+};
 const schemas: Record<string, { properties: Record<string, JsonSchemaType>; required?: string[] }> =
   {
     things_status: { properties: {} },
@@ -19,7 +25,7 @@ const schemas: Record<string, { properties: Record<string, JsonSchemaType>; requ
       },
     },
     things_create: {
-      properties: { operationId: string, title: string, notes: string },
+      properties: { operationId: string, title: string, notes: string, start },
       required: ["operationId", "title"],
     },
     things_update: {
@@ -29,6 +35,7 @@ const schemas: Record<string, { properties: Record<string, JsonSchemaType>; requ
         expectedRevision: string,
         title: string,
         notes: { type: ["string", "null"] },
+        start,
       },
       required: ["operationId", "id", "expectedRevision"],
     },
@@ -98,7 +105,7 @@ export function httpServer(
         res.writeHead(400).end();
         return;
       }
-      const mcp = new McpServer({ name: "things-mcp", version: "0.1.0" });
+      const mcp = new McpServer({ name: "things-mcp", version: "0.2.0" });
       for (const [name, schema] of Object.entries(schemas))
         mcp.registerTool(
           name,

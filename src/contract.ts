@@ -61,3 +61,16 @@ export function text(value: unknown, max = 1000, empty = false): asserts value i
   if (typeof value !== "string" || (!empty && !value.length) || value.length > max)
     throw new Fault("invalid_argument");
 }
+
+// Civil calendar dates, never timestamps or locale-dependent date strings.
+export function calendarDate(value: unknown): asserts value is string {
+  if (typeof value !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value))
+    throw new Fault("invalid_start_date");
+  const parsed = new Date(value + "T12:00:00Z");
+  if (
+    value < "1904-01-01" ||
+    !Number.isFinite(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== value
+  )
+    throw new Fault("invalid_start_date");
+}

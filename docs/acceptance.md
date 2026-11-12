@@ -15,12 +15,27 @@ background. macOS may show UI during startup; silence is required for task event
 
 A disposable repeating instance was edited, completed, and reopened while another
 related item retained its readable fields. This does not establish preservation
-of recurrence rules, dates, or additional generated occurrences: the adapter does
-not expose them. Target an exact native ID and do not infer template relationships.
+of recurrence rules or additional generated occurrences. Those fixture checks
+predate date support. Target an exact native ID and do not infer template relationships.
 
-Unsupported features include dates, tags, parent changes, moves, ordering, project
+Unsupported features include start-date clearing, deadline edits, tags, parent changes, moves, ordering, project
 or area creation, checklists, reminders, recurrence-rule editing, and list scopes
 other than open Inbox. Capability responses explicitly report these limits.
+
+Scheduled dates are implemented through the native schedule command, with start
+and deadline readback. Isolated checks cover date validation, event encoding,
+revision conflicts, field preservation, and partial creation recovery. A disposable fixture passed scheduled creation for a future date, rescheduling to
+the current date, readback, deadline preservation, and completion through the
+loopback MCP transport under the existing launcher identity. A separate noninteractive native read confirmed the fixture in Today after
+rescheduling; the fixture was then completed. The corrected implementation also passed a hidden-window rescheduling check;
+the owner observed no window, focus change, or permission prompt. Hosted scheduling
+remains unverified.
+These are required before claiming complete installed or hosted scheduling
+acceptance. Do not test against an owner's actual tasks.
+
+This release changes the native executable. Ordinary activation rejects that
+identity change; qualify the native upgrade explicitly before installation.
+Existing task revisions and pagination contexts must be refreshed after upgrade.
 
 ## Verification boundaries
 

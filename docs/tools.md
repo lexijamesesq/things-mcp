@@ -10,8 +10,8 @@ not the whole URL. OAuth scopes are checked at both the gateway and local servic
 | `things_capabilities` | `{}` |
 | `things_list` | Optional `scope: "inbox"`, `limit` (1–500, default 100), `cursor` |
 | `things_get` | `id` |
-| `things_create` | UUID `operationId`, nonempty `title`, optional string `notes` |
-| `things_update` | UUID `operationId`, `id`, `expectedRevision`, at least one of `title` or `notes` |
+| `things_create` | UUID `operationId`, nonempty `title`, optional string `notes` and `start` date |
+| `things_update` | UUID `operationId`, `id`, `expectedRevision`, at least one of `title`, `notes`, or `start` |
 | `things_set_status` | UUID `operationId`, `id`, `expectedRevision`, `status: "open"` or `"completed"` |
 | `things_operation_status` | UUID `operationId` |
 
@@ -20,9 +20,37 @@ The complete HTTP request must fit within 256 KiB. An empty title is invalid.
 For updates, `notes: null` or an empty string clears notes; an omitted field is
 preserved. Creation does not accept null notes. Status is a separate operation.
 
+## Scheduling
+
+`start` is a scheduled calendar date in `YYYY-MM-DD` form (years 1904–9999),
+interpreted in the service's IANA timezone from `things_capabilities`. The configured
+timezone name must match the Mac system timezone that Things uses. Native access
+fails with `timezone_mismatch` when they differ; readiness and creation preflight
+check this before task mutations. Update configuration deliberately if the Mac
+timezone changes; the service does not change system settings. To schedule
+for Today, supply the current calendar date in that timezone. Timestamps, relative
+strings such as `"today"`, invalid dates, and null are rejected. An omitted `start`
+leaves scheduling unchanged; clearing a start date is not supported. A civil date
+that does not exist in the configured timezone is rejected by the native helper.
+
+This sets Things' scheduled/activation date through its native `schedule` command.
+It does not set a deadline. Reads return `start` and `deadline` as date strings or
+null; deadlines remain read-only. Both fields participate in revision checks and
+preservation checks. Fetch a new revision after upgrading to this adapter.
+
+Creation first creates an Inbox task, then schedules that exact returned ID;
+scheduling can move it out of Inbox. The operations are separate journaled stages,
+not an atomic transaction. A failed scheduling stage retains the created ID and
+its observed result, without claiming that scheduling succeeded. Inspect partial
+or uncertain outcomes before taking any further action; never create a replacement
+as an automatic retry. No new authorization scopes are required.
+
+Today-list placement and silent scheduling passed local disposable-fixture checks.
+Hosted scheduling remains unverified; see [evidence limits](acceptance.md).
+
 ## Reads and pagination
 
-Task reads expose ID, title, notes, status, and an opaque revision. Read status may
+Task reads expose ID, title, notes, status, start date, deadline, and an opaque revision. Read status may
 also be `canceled` or `unknown`; neither is an accepted write target. Capabilities
 describe the supported surface, while status describes current readiness.
 
