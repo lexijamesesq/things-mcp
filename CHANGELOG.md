@@ -8,7 +8,7 @@
 - Scheduled creation records creation and scheduling separately for safe recovery.
 
 Requires explicit qualification of the changed native helper before deployment.
-Live scheduling and Today-view acceptance remain pending; refresh task revisions
+Hosted scheduling and Today-view acceptance remain pending; refresh task revisions
 and client tool metadata after upgrading. See [evidence limits](docs/acceptance.md).
 
 ## 0.1.0

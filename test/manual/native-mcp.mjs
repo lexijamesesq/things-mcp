@@ -14,6 +14,8 @@ import { Service } from "../../src/service.ts";
 
 process.umask(0o077);
 const config = JSON.parse(readFileSync(process.argv[2], "utf8"));
+// Optional candidate helper, without changing the installed configuration.
+if (process.argv[3]) config.nativePath = process.argv[3];
 verifyLock(
   join(dirname(config.nativePath), "Things MCP"),
   join(dirname(config.journal), "executor.lock"),
@@ -33,6 +35,7 @@ class FixtureNative extends Native {
         "get",
         "set_title",
         "set_notes",
+        "set_start",
         "set_status",
       ].includes(op),
     );
@@ -127,7 +130,16 @@ let fixture;
 try {
   const status = await call("things_status", {});
   assert.equal(status.native.permission, "authorized");
-  const create = { operationId: randomUUID(), title, notes: "Disposable acceptance notes" };
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: config.timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  const future = new Date(`${today}T12:00:00Z`);
+  future.setUTCDate(future.getUTCDate() + 7);
+  const start = future.toISOString().slice(0, 10);
+  const create = { operationId: randomUUID(), title, notes: "Disposable acceptance notes", start };
   await Promise.all(Array.from({ length: 5 }, () => call("things_create", create)));
   const created = await call("things_create", create);
   assert.equal(created.outcome, "applied");
@@ -135,6 +147,18 @@ try {
   fixture = created.result.id;
   assert.ok(known.has(fixture));
   let current = await call("things_get", { id: fixture });
+  assert.equal(current.start, start);
+  const originalDeadline = current.deadline;
+  const scheduled = await call("things_update", {
+    operationId: randomUUID(),
+    id: fixture,
+    expectedRevision: current.revision,
+    start: today,
+  });
+  assert.equal(scheduled.outcome, "applied");
+  assert.equal(scheduled.result.start, today);
+  assert.equal(scheduled.result.deadline, originalDeadline);
+  current = scheduled.result;
   const originalRevision = current.revision;
   const update = {
     operationId: randomUUID(),
