@@ -133,7 +133,10 @@ test("actual native control flow preserves silent lifecycle guards and schedulin
     { timezone: "" },
     { value: "2011-12-30", timezone: "Pacific/Apia" },
   ]) {
-    const invalid = run("schedule_success", { ...schedule, ...patch });
+    const invalid = run(
+      patch.timezone === "Pacific/Apia" ? "schedule_success_apia" : "schedule_success",
+      { ...schedule, ...patch },
+    );
     assert.equal(invalid.reply.error, "invalid_argument", JSON.stringify(patch));
     assert.equal(invalid.reply.dispatched, false);
     assert.equal(invalid.observed.appLookups, 0);
@@ -141,6 +144,20 @@ test("actual native control flow preserves silent lifecycle guards and schedulin
     assert.equal(invalid.observed.eventCalls, 0);
   }
   const get = { operation: "get", id: "synthetic-fixture", timezone: "America/Phoenix" };
+  for (const request of [schedule, get, { operation: "status" }, { operation: "ensure_running" }]) {
+    const mismatch = run("schedule_success", { ...request, timezone: "Etc/UTC" });
+    assert.equal(mismatch.reply.error, "timezone_mismatch", request.operation);
+    assert.equal(mismatch.reply.dispatched, false);
+    assert.equal(mismatch.observed.appLookups, 0);
+    assert.equal(mismatch.observed.permissionChecks, 0);
+    assert.equal(mismatch.observed.eventCalls, 0);
+    assert.equal(mismatch.observed.openCalls, 0);
+  }
+  for (const operation of ["status", "ensure_running"]) {
+    const matching = run("schedule_success", { operation, timezone: "America/Phoenix" }, 0);
+    assert.equal(matching.reply.ok, true);
+    assert.equal(matching.observed.eventCalls, 0);
+  }
   const dated = run("read_dates", get, 0);
   assert.equal(dated.reply.result.start, "2026-11-11");
   assert.equal(dated.reply.result.deadline, "2026-11-12");

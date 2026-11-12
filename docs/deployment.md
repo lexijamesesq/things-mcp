@@ -112,9 +112,14 @@ Set your deployment values (the subject is an identifier, not an OAuth token):
 ```sh
 export THINGS_PUBLIC_HOST='things.example.com'
 export THINGS_OWNER_SUBJECT='YOUR_ACCESS_IDENTITY_SUBJECT'
-export THINGS_TIMEZONE='Etc/UTC'
+export THINGS_TIMEZONE='YOUR_MAC_IANA_TIMEZONE'
 export THINGS_SIGNING_KID='initial'
 ```
+
+The configured `timezone` must use the same IANA name as the Mac's system timezone.
+Replace the example with your Mac's actual zone; a mismatch fails native access
+rather than shifting scheduled dates. Keep the setting aligned after travel or a
+system timezone change. The service never changes the Mac's timezone itself.
 
 Create the local configuration with absolute paths. The runtime does not expand
 shell variables inside JSON. This command performs expansion before writing:

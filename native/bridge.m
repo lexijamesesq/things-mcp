@@ -44,6 +44,7 @@ static NSString *str(NSDictionary *request, NSString *key, NSUInteger max);
 static NSDateFormatter *dateFormatter(NSDictionary *r) {
  NSString *zone=str(r,@"timezone",128);
  NSTimeZone *tz=[NSTimeZone timeZoneWithName:zone];if(!tz)fail(@"invalid_argument");
+ if(![tz.name isEqual:NSTimeZone.systemTimeZone.name])fail(@"timezone_mismatch");
  NSDateFormatter *f=[NSDateFormatter new];f.locale=[[NSLocale alloc]initWithLocaleIdentifier:@"en_US_POSIX"];
  f.calendar=[[NSCalendar alloc]initWithCalendarIdentifier:NSCalendarIdentifierGregorian];f.timeZone=tz;f.dateFormat=@"yyyy-MM-dd";f.lenient=NO;return f;
 }
@@ -78,6 +79,7 @@ int main(int argc, const char **argv) { @autoreleasepool { @try {
  else if([op isEqual:@"get"]){exact(r,@[@"operation",@"id",@"timezone"]);str(r,@"id",256);dateFormatter(r);}
  else if([op isEqual:@"set_start"]){exact(r,@[@"operation",@"id",@"value",@"timezone"]);str(r,@"id",256);parseDate(r[@"value"],dateFormatter(r));}
  else if([op hasPrefix:@"set_"]){exact(r,@[@"operation",@"id",@"value"]);str(r,@"id",256);if([op isEqual:@"set_notes"]){if(![r[@"value"] isKindOfClass:NSString.class]||[r[@"value"] length]>100000)fail(@"invalid_argument");}else str(r,@"value",1000);if([op isEqual:@"set_status"]&&![@[@"open",@"completed"] containsObject:r[@"value"]])fail(@"invalid_argument");}
+ else if([@[@"status",@"ensure_running"] containsObject:op]){exact(r,@[@"operation",@"timezone"]);if(r[@"timezone"])dateFormatter(r);}
  else exact(r,@[@"operation"]);
  requireOwnerSession();
  NSArray *apps=[NSRunningApplication runningApplicationsWithBundleIdentifier:@"com.culturedcode.ThingsMac"];

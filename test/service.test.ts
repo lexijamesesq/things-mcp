@@ -335,3 +335,21 @@ test("scheduling that alters a deadline is uncertain and never replayed", async 
   await service.call("things_update", args, owner);
   assert.equal(native.writes, 1);
 });
+
+test("timezone mismatch blocks scheduled creation before any mutation", async (t) => {
+  const { service, native } = fixture(t);
+  const original = native.call.bind(native);
+  native.call = async (request) => {
+    if (request.operation === "ensure_running" && request.timezone === "America/Phoenix")
+      return { ok: false, dispatched: false, error: "timezone_mismatch" };
+    return original(request);
+  };
+  const result = await service.call(
+    "things_create",
+    { operationId: randomUUID(), title: "Blocked", start: "2032-01-01" },
+    owner,
+  );
+  assert.equal((result as { outcome: string }).outcome, "not_dispatched");
+  assert.match(JSON.stringify(result), /timezone_mismatch/);
+  assert.equal(native.writes, 0);
+});

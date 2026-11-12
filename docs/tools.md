@@ -23,7 +23,11 @@ preserved. Creation does not accept null notes. Status is a separate operation.
 ## Scheduling
 
 `start` is a scheduled calendar date in `YYYY-MM-DD` form (years 1904–9999),
-interpreted in the service's IANA timezone from `things_capabilities`. To schedule
+interpreted in the service's IANA timezone from `things_capabilities`. The configured
+timezone name must match the Mac system timezone that Things uses. Native access
+fails with `timezone_mismatch` when they differ; readiness and creation preflight
+check this before task mutations. Update configuration deliberately if the Mac
+timezone changes; the service does not change system settings. To schedule
 for Today, supply the current calendar date in that timezone. Timestamps, relative
 strings such as `"today"`, invalid dates, and null are rejected. An omitted `start`
 leaves scheduling unchanged; clearing a start date is not supported. A civil date

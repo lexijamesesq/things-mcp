@@ -37,12 +37,14 @@ static OSStatus fixturePermission(const AEAddressDesc *address, AEEventClass cls
 }
 @interface BoundaryHooks : NSObject
 + (NSArray *)fixtureApps:(NSString *)bundleIdentifier;
++ (NSTimeZone *)fixtureSystemTimeZone;
 - (pid_t)fixturePid;
 - (BOOL)fixtureTerminated;
 - (NSAppleEventDescriptor *)fixtureSend:(NSAppleEventSendOptions)options timeout:(NSTimeInterval)timeout error:(NSError **)error;
 - (void)fixtureOpen:(NSURL *)url configuration:(NSWorkspaceOpenConfiguration *)configuration completionHandler:(void (^)(NSRunningApplication *, NSError *))completion;
 @end
 @implementation BoundaryHooks
++ (NSTimeZone *)fixtureSystemTimeZone { return [NSTimeZone timeZoneWithName:[scenario isEqual:@"schedule_success_apia"]?@"Pacific/Apia":@"America/Phoenix"]; }
 - (pid_t)fixturePid { return getpid(); }
 - (BOOL)fixtureTerminated { return NO; }
 + (NSArray *)fixtureApps:(NSString *)bundleIdentifier {
@@ -108,6 +110,7 @@ static void replaceMethod(Method original, Method replacement) {
 int main(int argc,const char **argv) { @autoreleasepool {
  if(argc!=2)return 64;
  scenario=[NSString stringWithUTF8String:argv[1]];events=[NSMutableArray array];
+ replaceMethod(class_getClassMethod(NSTimeZone.class,@selector(systemTimeZone)),class_getClassMethod(BoundaryHooks.class,@selector(fixtureSystemTimeZone)));
  Class currentAppClass=object_getClass(NSRunningApplication.currentApplication);
  replaceMethod(class_getInstanceMethod(currentAppClass,@selector(processIdentifier)),class_getInstanceMethod(BoundaryHooks.class,@selector(fixturePid)));
  replaceMethod(class_getInstanceMethod(currentAppClass,@selector(isTerminated)),class_getInstanceMethod(BoundaryHooks.class,@selector(fixtureTerminated)));

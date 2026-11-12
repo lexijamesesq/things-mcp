@@ -64,7 +64,7 @@ export class Service {
     };
   }
   async ensureRunning() {
-    const ready = await this.native.call({ operation: "ensure_running" });
+    const ready = await this.native.call({ operation: "ensure_running", timezone: this.timezone });
     if (!ready.ok) throw new Fault(ready.error ?? "unavailable");
   }
   async read(id: string): Promise<Record<string, unknown>> {
@@ -123,7 +123,7 @@ export class Service {
       exact(args, []);
       return this.queue.run(async () => {
         const native = await this.native
-          .call({ operation: "status" })
+          .call({ operation: "status", timezone: this.timezone })
           .catch(
             () => ({ ok: false, dispatched: false, error: "native_unavailable" }) as NativeReply,
           );
@@ -267,7 +267,7 @@ export class Service {
     return this.queue.run(
       async () => {
         const ready = await this.native
-          .call({ operation: "ensure_running" })
+          .call({ operation: "ensure_running", timezone: this.timezone })
           .catch(() => ({ ok: false, error: "unavailable" }));
         if (!ready.ok) {
           this.journal.finish(p.owner, operationId, "not_dispatched", {
